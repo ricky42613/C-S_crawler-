@@ -3,14 +3,14 @@ var cluster = require('cluster')
 var request = require('request')
 var dns = require('dns')
 var GetMain = require('../gais_api/parseMain')
-var dnscache= require('dnscache')({
-    "enable":true,
-    "ttl":300,
-    "cachesize":1000
-})
 var urL = require('url')
 var md5 = require('md5')
-var CPU_num = require('os').cpus().length
+var GAIS = require('../gais_api/gais')
+var dnscache = require('dnscache')({
+    "enable": true,
+    "ttl": 300,
+    "cachesize": 1000
+})
 var config = {
     main_site: [
         "https://travel.ettoday.net/focus/%E6%97%A5%E6%9C%AC%E6%97%85%E9%81%8A/",
@@ -19,19 +19,15 @@ var config = {
         "https://www.haplaytour.com/blog/",
         "https://www.klook.com/zh-TW/blog/",
         "https://yoke918.com/",
-
-
-
     ],
     machine: "nudb1.ddns.net:5804",
-    server:"http://127.0.0.1:3000"
+    server: "http://127.0.0.1:3000",
+    black_list: ['undefined', '../']
 }
 var is_fillup = 0
-var GAIS = require('../gais_api/gais')
 var DB = new GAIS(config.machine)
 var url_pool = config.main_site
-console.log("本機器共" + CPU_num + "個處理器")
-const black_key_list = ['undefined']
+const black_key_list = ['undefined', '../']
 
 Array.prototype.unique = function() {
     let table = {}
@@ -67,12 +63,14 @@ function filter_black(url) {
     return flag
 }
 
-function get_source(text){
+function get_source(text) {
     let start = text.indexOf(".")
-    text = text.slice(start+1)
-    let end = text.indexOf(".")
-    if(end!=-1){
-        text = text.slice(0,end)
+    text2 = text.slice(start + 1)
+    let end = text2.indexOf(".")
+    if (end != -1) {
+        text = text2.slice(0, end)
+    } else {
+        text = text.slice(0, start)
     }
     return text
 }
@@ -84,17 +82,17 @@ function parse_url_in_body(url, body) {
     let links_in_page = $('a').get().map(item => {
         let data = {}
         if (typeof $(item).attr('href') != "undefined") {
-            if ($(item).attr('href').slice(0,4).indexOf('http') != -1) {
+            if ($(item).attr('href').slice(0, 4).indexOf('http') != -1) {
                 data.url = $(item).attr('href')
-            } else if($(item).attr('href')[0]=='/'){
-                if($(item).attr('href')[1]=='/'){
+            } else if ($(item).attr('href')[0] == '/') {
+                if ($(item).attr('href')[1] == '/') {
                     data.url = main_url.protocol + $(item).attr('href')
-                }else{
+                } else {
                     data.url = main_site + $(item).attr('href')
                 }
-            } else{
+            } else {
                 let cut = url.lastIndexOf('/') + 1
-                let basic = url.slice(0,cut)
+                let basic = url.slice(0, cut)
                 data.url = basic + $(item).attr('href')
             }
             data.fetch = false
@@ -127,22 +125,22 @@ function mytimer(cb) {
     }, 2000);
 }
 
-function query_unfetch(){
-    return new Promise(function(resolve,reject){
+function query_unfetch() {
+    return new Promise(function(resolve, reject) {
         request({
-            url:`${config.server}/get_url`,
-            method:'GET'
-        },function(e,r,b){
-            if(e){
+            url: `${config.server}/get_url`,
+            method: 'GET'
+        }, function(e, r, b) {
+            if (e) {
                 console.log(e)
-            }else{
+            } else {
                 let rsp = JSON.parse(r.body)
-                if(rsp.status){
-                    rsp = rsp.url_list.map(item=>{
+                if (rsp.status) {
+                    rsp = rsp.url_list.map(item => {
                         return item.url
                     })
                     resolve(rsp)
-                }else{
+                } else {
                     console.log(rsp.msg)
                 }
             }
@@ -156,7 +154,7 @@ function run() {
         var w2 = cluster.fork()
         var w3 = cluster.fork()
         var w4 = cluster.fork()
-        w1.send({ type: "url", url: url_pool.shift() })
+        w1.send({ type: "url", url: url_pool.splice(0, 30) })
         w1.on('message', function(msg) {
             if (msg.type == "response") {
                 console.log("w1 " + msg.msg)
@@ -165,7 +163,7 @@ function run() {
             }
             mytimer(async rst => {
                 is_fillup = 1
-                w1.send({ type: "url", url: url_pool.shift() })
+                w1.send({ type: "url", url: url_pool.splice(0, 30) })
                 console.log("Master給予worker1 1個連結,剩餘" + url_pool.length + "個連結")
                 if (url_pool.length == 0) {
                     w2.send({ type: "pause" })
@@ -180,7 +178,7 @@ function run() {
                 is_fillup = 0
             })
         })
-        w2.send({ type: "url", url: url_pool.shift() })
+        w2.send({ type: "url", url: url_pool.splice(0, 30) })
         w2.on('message', function(msg) {
             if (msg.type == "response") {
                 console.log("w2 " + msg.msg)
@@ -189,7 +187,7 @@ function run() {
             }
             mytimer(async rst => {
                 is_fillup = 1
-                w2.send({ type: "url", url: url_pool.shift() })
+                w2.send({ type: "url", url: url_pool.splice(0, 30) })
                 console.log("Master給予worker2 1個連結,剩餘" + url_pool.length + "個連結")
                 if (url_pool.length == 0) {
                     w1.send({ type: "pause" })
@@ -204,7 +202,7 @@ function run() {
                 is_fillup = 0
             })
         })
-        w3.send({ type: "url", url: url_pool.shift() })
+        w3.send({ type: "url", url: url_pool.splice(0, 30) })
         w3.on('message', function(msg) {
             if (msg.type == "response") {
                 console.log("w3 " + msg.msg)
@@ -213,7 +211,7 @@ function run() {
             }
             mytimer(async rst => {
                 is_fillup = 1
-                w3.send({ type: "url", url: url_pool.shift() })
+                w3.send({ type: "url", url: url_pool.splice(0, 30) })
                 console.log("Master給予worker3 1個連結,剩餘" + url_pool.length + "個連結")
                 if (url_pool.length == 0) {
                     w1.send({ type: "pause" })
@@ -228,7 +226,7 @@ function run() {
                 is_fillup = 0
             })
         })
-        w4.send({ type: "url", url: url_pool.shift() })
+        w4.send({ type: "url", url: url_pool.splice(0, 30) })
         w4.on('message', function(msg) {
             if (msg.type == "response") {
                 console.log("w4 " + msg.msg)
@@ -237,7 +235,7 @@ function run() {
             }
             mytimer(async rst => {
                 is_fillup = 1
-                w4.send({ type: "url", url: url_pool.shift() })
+                w4.send({ type: "url", url: url_pool.splice(0, 30) })
                 console.log("Master給予worker4 1個連結,剩餘" + url_pool.length + "個連結")
                 if (url_pool.length == 0) {
                     w1.send({ type: "pause" })
@@ -262,67 +260,68 @@ function run() {
                 console.log("get continue signal")
                 ctrl = 0
             } else if (msg.type == "url") {
-                let url = msg.url
-                request({
-                    url: url,
-                    method: 'GET'
-                }, async function(e, r, b) {
-                    if (e) {
-                        setTimeout(function() {
-                            let timer = setInterval(() => {
-                                if (!ctrl) {
-                                    process.send({ type: "response", msg: "fail " + url })
-                                    clearInterval(timer)
-                                    return
-                                }
-                            }, 1000)
-                        }, 2000)
-                    } else {
-                        let $ = cheerio.load(r.body)
-                        let data = {}
-                        data.title = $('title').text().trim()
-                        data.url = url
-                        data.UrlCode = md5(url)
-                        data.fetch_time = new Date()
-                        data.mainText = GetMain.ParseHTML(r.body)
-                        data.key_words = $('meta[name="keywords"]').attr("content")
-                        data.description = $('meta[name="description"]').attr("content")
-                        // data.post_time = $('li[itemprop="datePublished"]').length == 0 ? "" : $($('li[itemprop="datePublished"]')[0]).attr("content")
-                        data.domain = urL.parse(url).hostname
-                        data.domainCode = md5(data.domain)
-                        let find_dns = await get_ip(data.domain)
-                        if (find_dns == "error") {
-                            data.host_ip = "404"
-                        } else {
-                            data.host_ip = find_dns
-                        }
-                        await DB.update('link_pool2',{key:data.UrlCode}, "@fetch_time:" + data.fetch_time)
-                        if (data.mainText.length < 30) {
+                for (let i = 0; i < msg.url.cnt; i++) {
+                    let url = msg.url[i]
+                    request({
+                        url: url,
+                        method: 'GET'
+                    }, async function(e, r, b) {
+                        if (e) {
                             setTimeout(function() {
                                 let timer = setInterval(() => {
                                     if (!ctrl) {
-                                        process.send({ type: "response", msg: "finish " + url })
+                                        process.send({ type: "response", msg: "fail " + url })
                                         clearInterval(timer)
                                         return
                                     }
-                                }, 1000);
+                                }, 1000)
                             }, 2000)
                         } else {
-                            let link_pool = parse_url_in_body(url, r.body)
-                            await DB.insert('link_pool2',link_pool)
-                            await DB.insert('link_record',data)
-                            setTimeout(function() {
-                                let timer = setInterval(() => {
-                                    if (!ctrl) {
-                                        process.send({ type: "response", msg: "finish " + url })
-                                        clearInterval(timer)
-                                        return
-                                    }
-                                }, 1000);
-                            }, 2000)
+                            let $ = cheerio.load(r.body)
+                            let data = {}
+                            data.title = $('title').text().trim()
+                            data.url = url
+                            data.UrlCode = md5(url)
+                            data.fetch_time = new Date()
+                            data.mainText = GetMain.ParseHTML(r.body)
+                            data.key_words = $('meta[name="keywords"]').attr("content")
+                            data.description = $('meta[name="description"]').attr("content")
+                            data.domain = urL.parse(url).hostname
+                            data.domainCode = md5(data.domain)
+                            let find_dns = await get_ip(data.domain)
+                            if (find_dns == "error") {
+                                data.host_ip = "404"
+                            } else {
+                                data.host_ip = find_dns
+                            }
+                            await DB.update('link_pool2', { key: data.UrlCode }, "@fetch_time:" + data.fetch_time)
+                            if (data.mainText.length < 30) {
+                                setTimeout(function() {
+                                    let timer = setInterval(() => {
+                                        if (!ctrl) {
+                                            process.send({ type: "response", msg: "finish " + url })
+                                            clearInterval(timer)
+                                            return
+                                        }
+                                    }, 1000);
+                                }, 2000)
+                            } else {
+                                let link_pool = parse_url_in_body(url, r.body)
+                                await DB.insert('link_pool2', link_pool)
+                                await DB.insert('link_record', data)
+                                setTimeout(function() {
+                                    let timer = setInterval(() => {
+                                        if (!ctrl) {
+                                            process.send({ type: "response", msg: "finish " + url })
+                                            clearInterval(timer)
+                                            return
+                                        }
+                                    }, 1000);
+                                }, 2000)
+                            }
                         }
-                    }
-                })
+                    })
+                }
             }
         })
     }

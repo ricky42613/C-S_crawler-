@@ -1,19 +1,25 @@
 var cheerio = require('cheerio')
 var async = require('async')
 
-const text_tag = ['b','I','u','em','strong','font','p','span']
+const text_tag = ['b', 'u', 'em', 'strong', 'font', 'p', 'span']
 const weight_table = {
-    'p' : 8,
-    'div' : 4,
-    'span' : 2
+    'p': 8,
+    'div': 4,
+    'span': 2
 }
 
 function get_main_text(body) {
     return new Promise(function(resolve, reject) {
         let $ = cheerio.load(body)
+        $('script').remove()
+        $('style').remove()
+        $('noscript').remove()
+        $('iframe').remove()
+        $('image').remove()
         let blocks = $('div').get()
         let Text_tags_ratio = 0
         let Maintext = ""
+        let mainblock
         async.waterfall([
             function(callback) {
                 blocks.forEach(item => {
@@ -23,36 +29,40 @@ function get_main_text(body) {
                         $(inneritem1).contents().filter(function() {
                             return this.type === 'text'
                         }).each((idx, inneritem2) => {
-                            if($(inneritem2).text().length>6){
-                                maintext = maintext + $(inneritem2).text().trim()
-                                score = score + $(inneritem2).text().trim().length * weight_table['div']
-                            }
+                            // if ($(inneritem2).text().length > 6) {
+                            maintext = maintext + $(inneritem2).text().trim()
+                            score = score + $(inneritem2).text().trim().length * weight_table['div']
+                                // }
                         })
                     })
-                    let p_tags = $(item).find(text_tag.join(',')).get()
+                    let main_tags = $(item).find(text_tag.join(',')).get()
                     let inner_tag_len = $(item).find('*').filter((i, e) => {
-                        let not_count = text_tag.concat(['a','br','div','img','script'])
+                        let not_count = text_tag.concat(['a', 'br', 'div'])
                         return not_count.indexOf(e.name) == -1
-                    }).length 
+                    }).length
                     if (inner_tag_len <= 0) {
                         inner_tag_len = 1
                     }
-                    p_tags.forEach(inner_item => {
-                        let gettext = $(inner_item).text().trim().replace(/[\n|\t|\r]/g, "")
-                        if(inner_item.name != 'span' || gettext.length>8){
-                            if(gettext.length>5){
-                                maintext = maintext + gettext + '\n'
-                                let coef = weight_table['coef'] == undefined? 1 : weight_table['coef']
-                                score = score + coef*gettext.length
+                    main_tags.forEach(inner_item => {
+                        $(inner_item).contents().filter(function() {
+                            return this.type === 'text'
+                        }).each((idx, inner_item2) => {
+                            if ($(inner_item2).text().length) {
+                                let gettext = $(inner_item2).text().trim().replace(/[\n|\t|\r|\s]/g, "")
+                                maintext = maintext + gettext
+                                let tagName = $(inner_item)[0].tagName.toLowerCase()
+                                let coef = weight_table[tagName] == undefined ? 1 : weight_table[tagName]
+                                score = score + coef * gettext.length
                             }
-                        }
+                        });
                     })
 
-                    if (maintext.length > 40 && inner_tag_len > 3) {                    
+                    if (maintext.length > 40 && inner_tag_len > 3) {
                         let text_tags_ratio = score / inner_tag_len
                         if (text_tags_ratio >= Text_tags_ratio) {
                             Text_tags_ratio = text_tags_ratio
                             Maintext = maintext
+                            mainblock = item
                             final_item = item
                         }
                     }
@@ -60,7 +70,15 @@ function get_main_text(body) {
                 if (Maintext < 40) {
                     callback(null)
                 } else {
-                    resolve(Maintext)
+                    $(mainblock).find('a').get().map(item => {
+                        let link_text = $(item).text()
+                        if (link_text.length) {
+                            link_text = '$link$' + link_text + '$/link$'
+                            $(item).text(link_text)
+                        }
+                    })
+                    Maintext = $(mainblock).text().replace(/\$link\$/g, "<linktext>").replace(/\$\/link\$/g, "</linktext>").replace(/[\r|\n|\t|\s]/g, "")
+                    resolve([mainblock, Maintext])
                 }
             },
             function(callback) {
@@ -69,23 +87,23 @@ function get_main_text(body) {
                     $(inneritem1).contents().filter(function() {
                         return this.type === 'text'
                     }).each((idx, inneritem2) => {
-                        if($(inneritem2).text().length>6){
+                        if ($(inneritem2).text().length > 6) {
                             Maintext = Maintext + $(inneritem2).text().trim()
                         }
                     })
                 })
                 $(text_tag.join(',')).get().forEach(item => {
-                    Maintext = Maintext + $(item).text().trim().replace(/[\r|\n|\t]/g, "")
+                    Maintext = Maintext + $(item).text().trim().replace(/[\r|\n|\t|\s]/g, "")
                 })
                 if (Maintext.length < 40) {
                     callback(null)
                 } else {
-                    resolve(Maintext)
+                    resolve(['null', Maintext])
                 }
             },
             function(callback) {
-                Maintext = $('body').text().trim().replace(/[\r|\n|\t]/g, "")
-                resolve(Maintext)
+                Maintext = $('body').text().trim().replace(/[\r|\n|\t|\s]/g, "")
+                resolve(['null', Maintext])
             }
         ])
     })
