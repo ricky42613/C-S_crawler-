@@ -259,7 +259,9 @@ router.get('/get_url', async function(req, res, next) {
                     } else {
                         data.url_list = req.app.locals.link_pool.slice(location, location + size)
                         if (data.url_list.length) {
+                            console.log(`pool原長度${req.app.locals.link_pool.length}`)
                             req.app.locals.link_pool.splice(location, size)
+                            console.log(`pool切割後長度${req.app.locals.link_pool.length}`)
                             res.json(data)
                         } else {
                             res.json({
@@ -330,6 +332,7 @@ router.get('/add_seed', async function(req, res, next) {
                     }
                 }
                 pat_list.pats = pat_list.pats
+                console.log(pat_list)
                     // console.log(pat_list)
                 DB.insert(req.app.locals.parse_config.pool_db, url_list)
                 DB.insert(req.app.locals.parse_config.src_link_cntdb, dir_detect)
@@ -389,7 +392,6 @@ router.post('/edit_pat_db', async function(req, res, next) {
     console.log(pat_rec)
     if (pat_rec.status) {
         if (pat_rec.data.result.cnt) {
-            console.log(pat_rec.data.result.recs[0])
             var pat = JSON.parse(pat_rec.data.result.recs[0].rec.pats)
             var pat_table = JSON.parse(req.body.pat_table)
             pat.forEach(item => {

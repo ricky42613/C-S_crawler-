@@ -35,10 +35,12 @@ app.locals.parse_config = config
 app.locals.link_pool = []
 app.locals.client_list = []
 var total_pool_len = 50000
+var shutdown_signal = false
 
 function shutdown() {
+    shutdown_signal = true
     console.log(`返還${app.locals.link_pool.length}個連結`)
-    async.eachLimit(app.locals.link_pool, 50, function(item, cb) {
+    async.eachLimit(app.locals.link_pool, 20, function(item, cb) {
         (async function() {
             console.log(item.UrlCode)
             await DB.update(config.pool_db, { key: item.UrlCode }, 'text', "@fetch:false")
@@ -63,12 +65,10 @@ async function get_from_pool(skip) {
     if (skip == -1) {
         skip = getRandom(1, 10)
     }
-    console.log(skip)
     console.log("開始檢查pool")
-    if (ps > 0) {
+    if (ps > 0 && !shutdown_signal) {
         console.log("開始補充")
-        var rsp = await DB.pat_query(config.pool_db, "@fetch:false", skip, 50000)
-        console.log(rsp)
+        var rsp = await DB.query(config.pool_db, "@fetch:false", skip, 10000)
         if (rsp.status) {
             rsp.data.result.recs = rsp.data.result.recs.filter(item => {
                 return !item.hasOwnProperty('error')
@@ -76,25 +76,39 @@ async function get_from_pool(skip) {
             rsp = rsp.data.result.recs.slice(0, ps).map(item => {
                 return item.rec
             })
+            rsp.forEach(function(item, index, object) {
+                if (app.locals.link_pool.indexOf(item) == -1) {
+                    object.splice(index, 1);
+                }
+            });
             app.locals.link_pool = app.locals.link_pool.concat(rsp)
             app.locals.link_pool = app.locals.link_pool.unique()
             console.log("取回link record，目前池裡共" + app.locals.link_pool.length + "筆")
-            let cnt = 0
-            async.forever(function(cb) {
-                if (cnt == rsp.length) {
-                    cb('done')
-                } else {
-                    var promise = new Promise(async function(resolve, reject) {
-                        await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
-                        resolve("ok")
-                    }).then(val => {
-                        cnt++
-                        cb(null)
-                    })
-                }
-            }, function(err) {
-                console.log('已更新取回url')
-            })
+            if (rsp.length) {
+                let cnt = 0
+                async.forever(function(cb) {
+                    if (cnt == rsp.length || shutdown_signal) {
+                        cb('done')
+                    } else {
+                        var promise = new Promise(function(resolve, reject) {
+                            console.log(`更新${rsp[cnt].UrlCode}`)
+                            let update = await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
+                            if (update.status) {
+                                resolve(0)
+                            } else {
+                                resolve(1)
+                            }
+                        }).then(val => {
+                            if (!val) {
+                                cnt++
+                            }
+                            cb(null)
+                        })
+                    }
+                }, function(err) {
+                    console.log('已更新取回url')
+                })
+            }
         }
     } //get url per 5 minutes
 }
