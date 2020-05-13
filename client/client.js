@@ -26,8 +26,8 @@ var config = {
     linkcnt_db: "src_ave_link",
     triple_db: "link_triple",
     fail_time_limit: 10,
-    pool_size: 100,
-    batch_size: 10,
+    pool_size: 1000,
+    batch_size: 50,
     timeout: 500,
     req_timeout: 10000,
     wait_pool_fill: 3000
@@ -406,7 +406,7 @@ function parse_url_in_body(url, body) {
     return response
 }
 
-function fetch_url(url, layer, cb) {
+function fetch_url(url, cb) {
     try {
         request({
             url: url,
@@ -416,18 +416,13 @@ function fetch_url(url, layer, cb) {
             let data = {}
             if (e) {
                 if (e.code == 'ERR_UNESCAPED_CHARACTERS') {
-                    fetch_url(encodeURI(url), layer, rsp => {
+                    fetch_url(encodeURI(url), rsp => {
                         cb(rsp)
                     })
-                } else if (layer >= 3) {
+                } else {
                     data.status = false
                     data.msg = 'err'
                     cb(data)
-                } else {
-                    layer += 1
-                    fetch_url(url, layer, rsp => {
-                        cb(rsp)
-                    })
                 }
             } else {
                 if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
@@ -499,144 +494,156 @@ var promise = new Promise(async function(resolve, reject) {
                 console.log(`開始處理${url_list.length}個連結`)
                 let cnt = 0
                 let total_len = url_list.length
-                url_list.forEach(url => {
-                    let domain = urL.parse(encodeURI(url.trim())).hostname
-                    em.emit('check_src_pat', `pat_${get_source(domain)}`)
-                    em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
-                    let domainCode = md5(domain)
-                    if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
-                        fetch_url(url.trim(), 0, async(rsp_msg) => {
-                            if (rsp_msg.status) {
-                                let body = rsp_msg.msg
-                                let $ = cheerio.load(body)
-                                let data = {}
-                                data.title = $('title').text().trim()
-                                data.url = url
-                                data.UrlCode = md5(url)
-                                data.fetch_time = new Date()
-                                data.key_words = $('meta[name="keywords"]').attr("content")
-                                data.description = $('meta[name="description"]').attr("content")
-                                $('script').remove()
-                                $('style').remove()
-                                $('noscript').remove()
-                                $('*').each(function(idx, elem) {
-                                    for (var key in elem.attribs) {
-                                        if (key != 'id' && key != 'class') {
-                                            $(this).removeAttr(key)
-                                        }
-                                    }
-                                });
-                                data.domain = domain
-                                data.domainCode = domainCode
-                                let main_t = await GetMain.ParseHTML(body)
-                                data.mainText = main_t[1]
-                                if (main_t[0] != 'null') {
-                                    $(main_t[0]).addClass("my_main_block")
-                                    $(main_t[0]).find('*').each((idx, inneritem) => {
-                                        let key = $(inneritem).text().replace(/[\n|\t|\r|\s]/g, "").toString()
-                                        if (!is_time($(inneritem).text().replace(/[\n|\t|\r]/g, ""))) {
-                                            if (key.length < 30 && key.length) {
-                                                if (pat_table[get_source(domain)] != undefined) {
-                                                    if (pat_table[get_source(domain)][key] != undefined) {
-                                                        pat_table[get_source(domain)][key] += 1
-                                                    } else {
-                                                        pat_table[get_source(domain)][key] = 1
-                                                    }
-                                                } else {
-                                                    pat_table[get_source(domain)] = {}
-                                                    pat_table[get_source(domain)][key] = 1
-                                                }
+                async.eachLimit(url_list, 20, function(url, cb) {
+                    (async function() {
+                        let domain = urL.parse(encodeURI(url.trim())).hostname
+                        em.emit('check_src_pat', `pat_${get_source(domain)}`)
+                        em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
+                        let domainCode = md5(domain)
+                        if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
+                            fetch_url(url.trim(), async(rsp_msg) => {
+                                if (rsp_msg.status) {
+                                    let body = rsp_msg.msg
+                                    let $ = cheerio.load(body)
+                                    let data = {}
+                                    data.title = $('title').text().trim()
+                                    data.url = url
+                                    data.UrlCode = md5(url)
+                                    data.fetch_time = new Date()
+                                    data.key_words = $('meta[name="keywords"]').attr("content")
+                                    data.description = $('meta[name="description"]').attr("content")
+                                    $('script').remove()
+                                    $('style').remove()
+                                    $('noscript').remove()
+                                    $('*').each(function(idx, elem) {
+                                        for (var key in elem.attribs) {
+                                            if (key != 'id' && key != 'class') {
+                                                $(this).removeAttr(key)
                                             }
                                         }
-                                    })
-                                }
-                                try {
-                                    data.body = minify($('body').html(), { collapseWhitespace: true, removeEmptyElements: true, removeComments: true })
-                                } catch (e) {
-                                    console.log(`parse ${data.url}'s body fail`)
-                                }
-                                // let ban = 0
-                                if (detect_table[domainCode] == undefined) {
-                                    detect_table[domainCode] = { content: main_t[1], cnt: 1 }
-                                } else {
-                                    if (detect_table[domainCode].content == main_t[1]) {
-                                        detect_table[domainCode].cnt++;
-                                        if (detect_table[domainCode].cnt == config.fail_time_limit) {
-                                            em.emit('ban', domain)
-                                            ban = 1
-                                        }
-                                        console.log(`${url}再次fetch到${detect_table[domainCode].content}`)
-                                    } else {
-                                        detect_table[domainCode] = { content: main_t, cnt: 1 }
+                                    });
+                                    data.domain = domain
+                                    data.domainCode = domainCode
+                                    let main_t = await GetMain.ParseHTML(body)
+                                    data.mainText = main_t[1]
+                                    if (main_t[0] != 'null') {
+                                        $(main_t[0]).addClass("my_main_block")
+                                        $(main_t[0]).find('*').each((idx, inneritem) => {
+                                            let key = $(inneritem).text().replace(/[\n|\t|\r|\s]/g, "").toString()
+                                            if (!is_time($(inneritem).text().replace(/[\n|\t|\r]/g, ""))) {
+                                                if (key.length < 30 && key.length) {
+                                                    if (pat_table[get_source(domain)] != undefined) {
+                                                        if (pat_table[get_source(domain)][key] != undefined) {
+                                                            pat_table[get_source(domain)][key] += 1
+                                                        } else {
+                                                            pat_table[get_source(domain)][key] = 1
+                                                        }
+                                                    } else {
+                                                        pat_table[get_source(domain)] = {}
+                                                        pat_table[get_source(domain)][key] = 1
+                                                    }
+                                                }
+                                            }
+                                        })
                                     }
-                                }
-                                // if (!ban) {
-                                let find_dns = await get_ip(data.domain)
-                                if (find_dns == "error") {
-                                    data.host_ip = "404"
-                                } else {
-                                    data.host_ip = find_dns
-                                }
-                                let urls_in_page = parse_url_in_body(data.url, body)
-                                if (link_cnt_per_src[get_source(domain)] != undefined) {
-                                    link_cnt_per_src[get_source(domain)].page_cnt += 1
-                                    link_cnt_per_src[get_source(domain)].a_cnt += urls_in_page.link_in_page.length
-                                } else {
-                                    link_cnt_per_src[get_source(domain)] = {}
-                                    link_cnt_per_src[get_source(domain)].page_cnt = 1
-                                    link_cnt_per_src[get_source(domain)].a_cnt = urls_in_page.link_in_page.length
-                                }
-                                save_url = save_url.concat(urls_in_page.link_in_page)
-                                link_triples = link_triples.concat(urls_in_page.link_triples)
-                                DB.update(config.pool_db, { key: data.UrlCode }, 'text', "@fetch_time:" + data.fetch_time)
-                                save_data.push(data)
-                                    // }
-                                cnt += 1
-                                if (cnt == total_len) {
-                                    cb_mid(null)
-                                }
-                            } else if (rsp_msg.msg == 'err') {
-                                console.log(`fetch ${url}失敗`)
-                                if (detect_table[domainCode] == undefined) {
-                                    detect_table[domainCode] = { content: 'err', cnt: 1 }
-                                } else {
-                                    if (detect_table[domainCode].content == 'err') {
-                                        console.log(`${url}再次fetch到${detect_table[domainCode].content}`)
-                                        detect_table[domainCode].cnt++;
-                                        if (detect_table[domainCode].cnt == config.fail_time_limit) {
-                                            em.emit('ban', domain)
-                                        }
+                                    try {
+                                        data.body = minify($('body').html(), { collapseWhitespace: true, removeEmptyElements: true, removeComments: true })
+                                    } catch (e) {
+                                        console.log(`parse ${data.url}'s body fail`)
+                                    }
+                                    // let ban = 0
+                                    if (detect_table[domainCode] == undefined) {
+                                        detect_table[domainCode] = { content: main_t[1], cnt: 1 }
                                     } else {
+                                        if (detect_table[domainCode].content == main_t[1]) {
+                                            detect_table[domainCode].cnt++;
+                                            if (detect_table[domainCode].cnt == config.fail_time_limit) {
+                                                em.emit('ban', domain)
+                                                ban = 1
+                                            }
+                                            console.log(`${url}再次fetch到${detect_table[domainCode].content}`)
+                                        } else {
+                                            detect_table[domainCode] = { content: main_t, cnt: 1 }
+                                        }
+                                    }
+                                    // if (!ban) {
+                                    let find_dns = await get_ip(data.domain)
+                                    if (find_dns == "error") {
+                                        data.host_ip = "404"
+                                    } else {
+                                        data.host_ip = find_dns
+                                    }
+                                    let urls_in_page = parse_url_in_body(data.url, body)
+                                    if (link_cnt_per_src[get_source(domain)] != undefined) {
+                                        link_cnt_per_src[get_source(domain)].page_cnt += 1
+                                        link_cnt_per_src[get_source(domain)].a_cnt += urls_in_page.link_in_page.length
+                                    } else {
+                                        link_cnt_per_src[get_source(domain)] = {}
+                                        link_cnt_per_src[get_source(domain)].page_cnt = 1
+                                        link_cnt_per_src[get_source(domain)].a_cnt = urls_in_page.link_in_page.length
+                                    }
+                                    save_url = save_url.concat(urls_in_page.link_in_page)
+                                    link_triples = link_triples.concat(urls_in_page.link_triples)
+                                    DB.update(config.pool_db, { key: data.UrlCode }, 'text', "@fetch_time:" + data.fetch_time)
+                                    save_data.push(data)
+                                        // }
+                                        // cnt += 1
+                                        // if (cnt == total_len) {
+                                        //     cb_mid(null)
+                                        // }
+                                    cb()
+                                } else if (rsp_msg.msg == 'err') {
+                                    console.log(`fetch ${url}失敗`)
+                                    if (detect_table[domainCode] == undefined) {
                                         detect_table[domainCode] = { content: 'err', cnt: 1 }
+                                    } else {
+                                        if (detect_table[domainCode].content == 'err') {
+                                            console.log(`${url}再次fetch到${detect_table[domainCode].content}`)
+                                            detect_table[domainCode].cnt++;
+                                            if (detect_table[domainCode].cnt == config.fail_time_limit) {
+                                                em.emit('ban', domain)
+                                            }
+                                        } else {
+                                            detect_table[domainCode] = { content: 'err', cnt: 1 }
+                                        }
                                     }
+                                    console.log('反還失敗url')
+                                    DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
+                                        // cnt += 1
+                                        // if (cnt == total_len) {
+                                        //     cb_mid(null)
+                                        // }
+                                    cb()
+                                } else if (rsp_msg.msg == 'break_url') {
+                                    console.log(`${url} is broken`)
+                                        // cnt += 1
+                                        // if (cnt == total_len) {
+                                        //     cb_mid(null)
+                                        // }
+                                    cb()
+                                } else {
+                                    // DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
+                                    // cnt += 1
+                                    // if (cnt == total_len) {
+                                    //     cb_mid(null)
+                                    // }
+                                    cb()
                                 }
-                                console.log('反還失敗url')
-                                DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
-                                cnt += 1
-                                if (cnt == total_len) {
-                                    cb_mid(null)
-                                }
-                            } else if (rsp_msg.msg == 'break_url') {
-                                console.log(`${url} is broken`)
-                                cnt += 1
-                                if (cnt == total_len) {
-                                    cb_mid(null)
-                                }
-                            } else {
-                                // DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
-                                cnt += 1
-                                if (cnt == total_len) {
-                                    cb_mid(null)
-                                }
-                            }
-                        })
-                    } else {
-                        DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
-                        cnt += 1
-                        if (cnt == total_len) {
-                            cb_mid(null)
+                            })
+                        } else {
+                            DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
+                                // cnt += 1
+                                // if (cnt == total_len) {
+                                //     cb_mid(null)
+                                // }
+                            cb()
                         }
+                    })()
+                }, function(err) {
+                    if (err) {
+                        console.log(err)
                     }
+                    cb(null)
                 })
             },
             function(cb_mid2) {
