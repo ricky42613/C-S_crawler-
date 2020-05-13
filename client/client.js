@@ -233,11 +233,16 @@ function update_pat_record(src, data, cb) {
             console.log(e)
             cb(false, e)
         } else {
-            let rsp = JSON.parse(r.body)
-            if (rsp.status) {
-                cb(true, rsp.data)
-            } else {
-                cb(false, rsp.msg)
+            try {
+                let rsp = JSON.parse(r.body)
+                if (rsp.status) {
+                    cb(true, rsp.data)
+                } else {
+                    cb(false, rsp.msg)
+                }
+            } catch (e) {
+                console.log(e)
+                cb(false, e)
             }
         }
     })
@@ -675,19 +680,19 @@ var promise = new Promise(async function(resolve, reject) {
                             }
                         });
                     }
-                    for (let src in pat_table) {
-                        update_pat_record(src, pat_table[src], (success, rst) => {
-                            if (success) {
-                                cache.set(`pat_${src}`, rst, 3 * 60 * 60, function(err) {
-                                    if (err) {
-                                        console.log(err)
-                                    }
-                                })
-                            } else {
-                                console.log(rst)
-                            }
-                        })
-                    }
+                    //         for (let src in pat_table) {
+                    //             // update_pat_record(src, pat_table[src], (success, rst) => {
+                    //             if (success) {
+                    //                 cache.set(`pat_${src}`, rst, 3 * 60 * 60, function(err) {
+                    //                     if (err) {
+                    //                         console.log(err)
+                    //                     }
+                    //                 })
+                    //             } else {
+                    //                 console.log(rst)
+                    //             }
+                    //         // })
+                    // }
                     link_cnt_per_src = {}
                     pat_table = {}
                     console.log('pool已空，向server請求連結')
