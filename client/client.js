@@ -18,7 +18,7 @@ var em = new events.EventEmitter()
 var minify = require('html-minifier').minify
 var config = {
     user: "",
-    machine: "nubot70.taiwin.tw",
+    machine: "nubot70.taiwin.tw:5802",
     server: "http://140.123.101.150:3080",
     pool_db: "dict_pool",
     record_db: "dict_record",
