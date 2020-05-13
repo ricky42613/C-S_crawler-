@@ -34,6 +34,42 @@ method.pat_query = function(db, q, p, ps) {
     })
 }
 
+method.select_query = function(db, q, p, ps, select) {
+    var domain = this._domain
+    var query_api = `http://${domain}/nudb/query`
+    return new Promise(function(resolve, reject) {
+        request.post({
+            url: query_api,
+            form: {
+                db: db,
+                p: parseInt(p),
+                ps: parseInt(ps),
+                out: 'json',
+                q: q,
+                select: select
+            }
+        }, function(e, r, b) {
+            if (e) {
+                console.log(e)
+                let msg = {}
+                msg.status = false
+                msg.err = e
+                resolve(msg)
+            } else {
+                try {
+                    let msg = {}
+                    msg.status = true
+                    msg.data = JSON.parse(r.body)
+                    resolve(msg)
+                } catch (e) {
+                    msg.status = false
+                    msg.err = e
+                    resolve(status)
+                }
+            }
+        })
+    })
+}
 
 method.query = function(db, q, p, ps) {
     var domain = this._domain
@@ -52,14 +88,18 @@ method.query = function(db, q, p, ps) {
             if (e) {
                 console.log(e)
                 let msg = {}
-                msg.status = false,
-                    msg.err = e
+                msg.status = false
+                msg.err = e
                 resolve(msg)
             } else {
-                let msg = {}
-                msg.status = true
-                msg.data = JSON.parse(r.body)
-                resolve(msg)
+                try {
+                    let msg = {}
+                    msg.status = true
+                    msg.data = JSON.parse(r.body)
+                    resolve(msg)
+                } catch (e) {
+                    resolve('err')
+                }
             }
         })
     })
@@ -73,9 +113,6 @@ method.insert = function(db, record) {
         option.db = db
         option.format = 'json'
         option.record = JSON.stringify(record)
-        if (db == "pattern") {
-            console.log(option)
-        }
         request.post({
             url: db_api,
             form: option
@@ -138,12 +175,6 @@ method.update = function(db, identify, format, field) {
                     let msg = {}
                     msg.status = true
                     msg.data = JSON.parse(r.body)
-                    if (db == 'pattern') {
-                        console.log(r.body)
-                    }
-                    if (JSON.parse(r.body).error != undefined) {
-                        console.log(option)
-                    }
                     resolve(msg)
                 }
             })

@@ -26,10 +26,10 @@ var config = {
     linkcnt_db: "source_ave_link",
     triple_db: "link_triple",
     fail_time_limit: 10,
-    pool_size: 1000,
-    batch_size: 30,
+    pool_size: 100,
+    batch_size: 10,
     timeout: 500,
-    req_timeout: 3000,
+    req_timeout: 10000,
     wait_pool_fill: 3000
 }
 var DB = new GAIS(config.machine)
@@ -170,7 +170,6 @@ function get_linkcnt_record(src, cb) {
             cb(false, e)
         } else {
             let rsp = JSON.parse(r.body)
-            console.log(rsp)
             if (rsp.status) {
                 cb(true, rsp.data)
             } else {
@@ -195,7 +194,6 @@ function update_linkcnt_record(src, data, cb) {
             cb(false, e)
         } else {
             let rsp = JSON.parse(r.body)
-            console.log(rsp)
             if (rsp.status) {
                 cb(true, rsp.data)
             } else {
@@ -228,7 +226,6 @@ function update_pat_record(src, data, cb) {
     let body = {}
     body.src = src
     body.pat_table = JSON.stringify(data)
-    console.log(src)
     request({
         method: 'POST',
         url: `${config.server}/edit_pat_db`,
@@ -239,7 +236,6 @@ function update_pat_record(src, data, cb) {
             cb(false, e)
         } else {
             let rsp = JSON.parse(r.body)
-            console.log(rsp)
             if (rsp.status) {
                 cb(true, rsp.data)
             } else {
@@ -306,12 +302,10 @@ function get_url_from_server(cb) {
                     let pool = rsp.url_list.map(item => {
                         return item.url
                     })
-                    console.log(pool.length)
                     data.status = true
                     data.pool = pool
                     cb(data)
                 } else {
-                    console.log(rsp.msg)
                     data.status = false
                     data.msg = rsp.msg
                     cb(data)
@@ -424,7 +418,6 @@ function fetch_url(url, layer, cb) {
                         cb(rsp)
                     })
                 } else if (layer >= 3) {
-                    console.log(e)
                     data.status = false
                     data.msg = 'err'
                     cb(data)
@@ -481,9 +474,8 @@ var promise = new Promise(async function(resolve, reject) {
                 if (r.status) {
                     if (r.pool.length) {
                         url_pool = r.pool
-                        console.log(url_pool)
                         console.log(`取得${r.pool.length}筆url`)
-                        resolve('success')
+                        resolve()
                         clearInterval(timer)
                     } else {
                         console.log("取回數量0,重新索取")
@@ -492,13 +484,13 @@ var promise = new Promise(async function(resolve, reject) {
             })
         }, config.wait_pool_fill);
     })
-}).then(rsp => {
+}).then(() => {
+    let save_data = []
+    let save_url = []
+    let link_triples = []
+    let link_cnt_per_src = {}
+    let pat_table = {}
     async.forever(function(cb) {
-        let save_data = []
-        let save_url = []
-        let link_triples = []
-        let link_cnt_per_src = {}
-        let pat_table = {}
         async.waterfall([
             function(cb_mid) {
                 let url_list = url_pool.splice(0, config.batch_size)
@@ -675,6 +667,7 @@ var promise = new Promise(async function(resolve, reject) {
                         })
                     }
                     save_url = save_url.unique()
+                    console.log(`預計儲存record${save_data.length}`)
                     if (save_data.length) {
                         DB.insert(config.record_db, save_data)
                     }
@@ -684,6 +677,11 @@ var promise = new Promise(async function(resolve, reject) {
                     if (link_triples.length) {
                         DB.insert(config.triple_db, link_triples)
                     }
+                    save_data = []
+                    save_url = []
+                    link_triples = []
+                    link_cnt_per_src = {}
+                    pat_table = {}
                     console.log('pool已空，向server請求連結')
                     let timer = setInterval(() => {
                         get_url_from_server(r => {
