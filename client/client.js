@@ -26,8 +26,8 @@ var config = {
     linkcnt_db: "src_ave_link",
     triple_db: "link_triple",
     fail_time_limit: 10,
-    pool_size: 1000,
-    batch_size: 50,
+    pool_size: 120,
+    batch_size: 30,
     timeout: 500,
     req_timeout: 10000,
     wait_pool_fill: 3000
@@ -494,7 +494,7 @@ var promise = new Promise(async function(resolve, reject) {
                 console.log(`開始處理${url_list.length}個連結`)
                 let cnt = 0
                 let total_len = url_list.length
-                async.eachLimit(url_list, 20, function(url, cb) {
+                async.eachLimit(url_list, config.batch_size, function(url, cb) {
                     (async function() {
                         let domain = urL.parse(encodeURI(url.trim())).hostname
                         em.emit('check_src_pat', `pat_${get_source(domain)}`)
@@ -647,9 +647,22 @@ var promise = new Promise(async function(resolve, reject) {
                 })
             },
             function(cb_mid2) {
+                save_url = save_url.unique()
+                console.log(`預計儲存record${save_data.length}`)
+                if (save_data.length) {
+                    DB.insert(config.record_db, save_data)
+                }
+                if (save_url.length) {
+                    DB.insert(config.pool_db, save_url)
+                }
+                if (link_triples.length) {
+                    DB.insert(config.triple_db, link_triples)
+                }
+                save_data = []
+                save_url = []
+                link_triples = []
                 if (url_pool.length == 0) {
                     for (let src in link_cnt_per_src) {
-                        console.log(`linkcnt_${src}`)
                         update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
                             if (success) {
                                 cache.set(`linkcnt_${src}`, rst, 3 * 60 * 60, function(err) {
@@ -675,20 +688,6 @@ var promise = new Promise(async function(resolve, reject) {
                             }
                         })
                     }
-                    save_url = save_url.unique()
-                    console.log(`預計儲存record${save_data.length}`)
-                    if (save_data.length) {
-                        DB.insert(config.record_db, save_data)
-                    }
-                    if (save_url.length) {
-                        DB.insert(config.pool_db, save_url)
-                    }
-                    if (link_triples.length) {
-                        DB.insert(config.triple_db, link_triples)
-                    }
-                    save_data = []
-                    save_url = []
-                    link_triples = []
                     link_cnt_per_src = {}
                     pat_table = {}
                     console.log('pool已空，向server請求連結')
