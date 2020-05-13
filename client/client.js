@@ -84,7 +84,6 @@ em.on('check_src_pat', function(data) { //取得source的pattern db
                     clearInterval(timer)
                 } else {
                     if (typeof(rsp) == 'undefined') {
-                        console.log(`get ${data} pattern`)
                         get_pat_record(data, (success, msg) => {
                             if (success) {
                                 cache.set(data, JSON.stringify(msg), 3 * 60 * 60, err => {
@@ -122,7 +121,6 @@ em.on('get_src_ave_linkcnt', function(data) { //取得source的平均連結數�
                     clearInterval(timer)
                 } else {
                     if (typeof(rsp) == 'undefined') {
-                        console.log(`get ${data} average link cnt`)
                         get_linkcnt_record(data, (success, msg) => {
                             if (success) {
                                 cache.set(data, msg, 3 * 60 * 60, err => {
@@ -321,15 +319,19 @@ function get_url_from_server(cb) {
 }
 
 function get_source(text) {
-    let start = text.indexOf(".")
-    text2 = text.slice(start + 1)
-    let end = text2.indexOf(".")
-    if (end != -1) {
-        text = text2.slice(0, end)
-    } else {
-        text = text.slice(0, start)
+    try {
+        let start = text.indexOf(".")
+        text2 = text.slice(start + 1)
+        let end = text2.indexOf(".")
+        if (end != -1) {
+            text = text2.slice(0, end)
+        } else {
+            text = text.slice(0, start)
+        }
+        return text
+    } catch (e) {
+        return 'err'
     }
-    return text
 }
 
 function filter_black(url, in_source) {
