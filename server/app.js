@@ -6,7 +6,7 @@ var logger = require('morgan');
 var GAIS = require('../gais_api/gais')
 var async = require('async')
 var config = {
-    db_location: "nubot70.taiwin.tw",
+    db_location: "nubot70.taiwin.tw:5802",
     pool_db: "dict_pool",
     record: "dict_record",
     pattern_db: "pattern",
