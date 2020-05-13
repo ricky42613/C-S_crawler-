@@ -91,7 +91,6 @@ async function get_from_pool(skip) {
                         cb('done')
                     } else {
                         var promise = new Promise(async function(resolve, reject) {
-                            console.log(`更新${rsp[cnt].UrlCode}`)
                             let update = await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
                             if (update.status) {
                                 resolve(0)
@@ -101,6 +100,9 @@ async function get_from_pool(skip) {
                         }).then(val => {
                             if (!val) {
                                 cnt++
+                                if (cnt % 100 == 0) {
+                                    console.log(`已更新${cnt}個url`)
+                                }
                             }
                             cb(null)
                         })
