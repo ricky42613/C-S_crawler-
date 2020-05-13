@@ -18,12 +18,12 @@ var em = new events.EventEmitter()
 var minify = require('html-minifier').minify
 var config = {
     user: "",
-    machine: "nudb1.ddns.net:5804",
-    server: "http://127.0.0.1:3000",
-    pool_db: "test_pool",
-    record_db: "test_record",
+    machine: "nubot70.taiwin.tw",
+    server: "http://140.123.101.150:3080",
+    pool_db: "dict_pool",
+    record_db: "dict_record",
     pattern_db: "pattern",
-    linkcnt_db: "source_ave_link",
+    linkcnt_db: "src_ave_link",
     triple_db: "link_triple",
     fail_time_limit: 10,
     pool_size: 100,

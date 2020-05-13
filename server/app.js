@@ -6,11 +6,11 @@ var logger = require('morgan');
 var GAIS = require('../gais_api/gais')
 var async = require('async')
 var config = {
-    db_location: "nudb1.ddns.net:5804",
-    pool_db: "test_pool",
-    record: "test_record",
+    db_location: "nubot70.taiwin.tw",
+    pool_db: "dict_pool",
+    record: "dict_record",
     pattern_db: "pattern",
-    src_link_cntdb: "source_ave_link",
+    src_link_cntdb: "src_ave_link",
     black_list: ['undefined', '../', 'javascript:', 'mailto:']
 }
 var DB = new GAIS(config.db_location)
@@ -90,7 +90,7 @@ async function get_from_pool(skip) {
                     if (cnt == rsp.length || shutdown_signal) {
                         cb('done')
                     } else {
-                        var promise = new Promise(function(resolve, reject) {
+                        var promise = new Promise(async function(resolve, reject) {
                             console.log(`更新${rsp[cnt].UrlCode}`)
                             let update = await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
                             if (update.status) {
