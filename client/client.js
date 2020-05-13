@@ -643,7 +643,7 @@ var promise = new Promise(async function(resolve, reject) {
                     if (err) {
                         console.log(err)
                     }
-                    cb(null)
+                    cb_mid(null)
                 })
             },
             function(cb_mid2) {
