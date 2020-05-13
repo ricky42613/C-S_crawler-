@@ -3,12 +3,12 @@ var async = require('async')
 var request = require('request')
 var dns = require('dns')
 var dnscache = require('dnscache')({
-    "enable": true,
-    "ttl": 300,
-    "cachesize": 1000
-})
-var memcached = require('memcached')
-var cache = new memcached('localhost:8888')
+        "enable": true,
+        "ttl": 300,
+        "cachesize": 1000
+    })
+    // var memcached = require('memcached')
+    // var cache = new memcached('localhost:8888')
 var GetMain = require('../gais_api/parseMain')
 var GAIS = require('../gais_api/gais')
 var urL = require('url')
@@ -26,7 +26,7 @@ var config = {
     linkcnt_db: "src_ave_link",
     triple_db: "link_triple",
     fail_time_limit: 10,
-    pool_size: 120,
+    pool_size: 1000,
     batch_size: 30,
     timeout: 500,
     req_timeout: 10000,
@@ -72,7 +72,7 @@ em.on('ban', function(data) { //爬蟲阻擋偵測
     console.log(`${data}被ban了\n最後fetch到的內容為${detect_table[md5(data)].content}`)
 })
 
-em.on('check_src_pat', function(data) { //取得source的pattern db
+/*em.on('check_src_pat', function(data) { //取得source的pattern db
     //data:pat_${src}
     let timer = setInterval(function() {
         if (!src_pat_ctrl) {
@@ -144,7 +144,7 @@ em.on('get_src_ave_linkcnt', function(data) { //取得source的平均連結數�
             })
         }
     }, 500)
-})
+})*/
 
 Array.prototype.unique = function() {
     let table = {}
@@ -502,8 +502,8 @@ var promise = new Promise(async function(resolve, reject) {
                 async.eachLimit(url_list, config.batch_size, function(url, cb) {
                     (async function() {
                         let domain = urL.parse(encodeURI(url.trim())).hostname
-                        em.emit('check_src_pat', `pat_${get_source(domain)}`)
-                        em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
+                            // em.emit('check_src_pat', `pat_${get_source(domain)}`)
+                            // em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
                         let domainCode = md5(domain)
                         if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
                             fetch_url(url.trim(), async(rsp_msg) => {
@@ -669,15 +669,15 @@ var promise = new Promise(async function(resolve, reject) {
                 if (url_pool.length == 0) {
                     for (let src in link_cnt_per_src) {
                         update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
-                            if (success) {
-                                cache.set(`linkcnt_${src}`, rst, 3 * 60 * 60, function(err) {
-                                    if (err) {
-                                        console.log(err)
-                                    }
-                                })
-                            } else {
-                                console.log(rst)
-                            }
+                            // if (success) {
+                            //     cache.set(`linkcnt_${src}`, rst, 3 * 60 * 60, function(err) {
+                            //         if (err) {
+                            //             console.log(err)
+                            //         }
+                            //     })
+                            // } else {
+                            //     console.log(rst)
+                            // }
                         });
                     }
                     //         for (let src in pat_table) {

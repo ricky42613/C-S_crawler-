@@ -126,12 +126,10 @@ method.insert = function(db, record) {
                 resolve(msg)
             } else {
                 let msg = {}
-                msg.status = true
-                msg.data = JSON.parse(r.body)
                 try {
-                    console.log(`儲存${msg.data.result.length}筆資料至${db}`)
+                    msg.status = true
                 } catch (e) {
-                    console.log(msg)
+                    console.log(e)
                 }
                 resolve(msg)
             }
