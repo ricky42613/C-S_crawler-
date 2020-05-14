@@ -705,8 +705,10 @@ var promise = new Promise(async function(resolve, reject) {
                                     clearInterval(timer)
                                 }
                             } else {
-                                cb(r.msg)
-                                clearInterval(timer)
+                                if (r.msg != 'queue已空') {
+                                    cb(r.msg)
+                                    clearInterval(timer)
+                                }
                             }
                         })
                     }, config.wait_pool_fill);
