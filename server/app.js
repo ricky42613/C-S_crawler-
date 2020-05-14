@@ -39,11 +39,15 @@ var shutdown_signal = false
 
 function shutdown() {
     shutdown_signal = true
+    let cnt = 0
     console.log(`返還${app.locals.link_pool.length}個連結`)
     async.eachLimit(app.locals.link_pool, 20, function(item, cb) {
         (async function() {
-            console.log(item.UrlCode)
             await DB.update(config.pool_db, { key: item.UrlCode }, 'text', "@fetch:false")
+            cnt++
+            if (cnt % 100 == 0) {
+                console.log(`已更新${cnt}個url`)
+            }
             cb()
         })()
     }, function(err) {
