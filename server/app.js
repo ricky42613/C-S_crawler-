@@ -37,13 +37,28 @@ app.locals.client_list = []
 var total_pool_len = 50000
 var shutdown_signal = false
 
+
+function update_rec(key, format, rec) {
+    return new Promise(async function(resolve, reject) {
+        let r = await DB.update(config.pool_db, { key: key }, format, rec)
+        if (!r.status) {
+            setTimeout(function() {
+                await update_rec(key, format, rec)
+                resolve()
+            }, 1000)
+        } else {
+            resolve()
+        }
+    })
+}
+
 function shutdown() {
     shutdown_signal = true
     let cnt = 0
     console.log(`返還${app.locals.link_pool.length}個連結`)
     async.eachLimit(app.locals.link_pool, 20, function(item, cb) {
         (async function() {
-            await DB.update(config.pool_db, { key: item.UrlCode }, 'text', "@fetch:false")
+            await update_rec(item.UrlCode, 'text', '@fetch:false')
             cnt++
             if (cnt % 100 == 0) {
                 console.log(`已更新${cnt}個url`)
@@ -95,18 +110,13 @@ async function get_from_pool(skip) {
                         cb('done')
                     } else {
                         var promise = new Promise(async function(resolve, reject) {
+                            update_rec(rsp[cnt].UrlCode, 'text', '@fetch:true')
                             let update = await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
-                            if (update.status) {
-                                resolve(0)
-                            } else {
-                                resolve(1)
-                            }
-                        }).then(val => {
-                            if (!val) {
-                                cnt++
-                                if (cnt % 100 == 0) {
-                                    console.log(`已更新${cnt}個url`)
-                                }
+                            resolve()
+                        }).then(() => {
+                            cnt++
+                            if (cnt % 100 == 0) {
+                                console.log(`已更新${cnt}個url`)
                             }
                             cb(null)
                         })

@@ -463,6 +463,34 @@ function register(cb) {
     })
 }
 
+function update_rec(key, format, rec) {
+    return new Promise(async function(resolve, reject) {
+        let r = await DB.update(config.pool_db, { key: key }, format, rec)
+        if (!r.status) {
+            setTimeout(function() {
+                await update_rec(key, format, rec)
+                resolve()
+            }, 1000)
+        } else {
+            resolve()
+        }
+    })
+}
+
+function save_rec(db, data) {
+    return new Promise(async function(resolve, reject) {
+        let r = await DB.insert(db, data)
+        if (!r.status) {
+            setTimeout(function() {
+                await save_rec(db, data)
+                resolve()
+            }, 1000)
+        } else {
+            resolve()
+        }
+    })
+}
+
 var promise = new Promise(async function(resolve, reject) {
     register(user => {
         config.user = user
@@ -582,7 +610,7 @@ var promise = new Promise(async function(resolve, reject) {
                                     }
                                     save_url = save_url.concat(urls_in_page.link_in_page)
                                     link_triples = link_triples.concat(urls_in_page.link_triples)
-                                    DB.update(config.pool_db, { key: data.UrlCode }, 'text', "@fetch_time:" + data.fetch_time)
+                                    await update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
                                     save_data.push(data);
                                     // }
                                     cb()
@@ -599,7 +627,7 @@ var promise = new Promise(async function(resolve, reject) {
                                             detect_table[domainCode] = { content: 'err', cnt: 1 }
                                         }
                                     }
-                                    DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
+                                    await update_rec(md5(url), 'text', '@fetch:false')
                                     cb()
                                 } else if (rsp_msg.msg == 'break_url') {
                                     console.log(`${url} is broken`)
@@ -609,7 +637,7 @@ var promise = new Promise(async function(resolve, reject) {
                                 }
                             })
                         } else {
-                            DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
+                            await update_rec(md5(url), 'text', '@fetch:false')
                             cb()
                         }
                     })()
@@ -651,13 +679,13 @@ var promise = new Promise(async function(resolve, reject) {
                     save_url = save_url.unique()
                     console.log(`預計儲存record${save_data.length}`)
                     if (save_data.length) {
-                        DB.insert(config.record_db, save_data)
+                        save_rec(config.record_db, save_data)
                     }
                     if (save_url.length) {
-                        DB.insert(config.pool_db, save_url)
+                        save_rec(config.pool_db, save_url)
                     }
                     if (link_triples.length) {
-                        DB.insert(config.triple_db, link_triples)
+                        save_rec(config.triple_db, link_triples)
                     }
                     save_data = []
                     save_url = []
