@@ -345,12 +345,12 @@ function filter_black(url, in_source) {
         if (url.indexOf(item) != -1) {
             flag = false
         }
-        if (flag) {
-            let source = get_source(urL.parse(url).hostname)
-            if (source != in_source) {
-                flag = false
-            }
-        }
+        // if (flag) {
+        //     let source = get_source(urL.parse(url).hostname)
+        //     if (source != in_source) {
+        //         flag = false
+        //     }
+        // }
     })
     return flag
 }

@@ -197,6 +197,34 @@ function _uuid() {
     });
 }
 
+function update_rec(db, key, format, rec) {
+    return new Promise(async function(resolve, reject) {
+        let r = await DB.update(db, { key: key }, format, rec)
+        if (!r.status) {
+            setTimeout(function() {
+                await update_rec(db, key, format, rec)
+                resolve()
+            }, 1000)
+        } else {
+            resolve()
+        }
+    })
+}
+
+function save_rec(db, data) {
+    return new Promise(async function(resolve, reject) {
+        let r = await DB.insert(db, data)
+        if (!r.status) {
+            setTimeout(function() {
+                await save_rec(db, data)
+                resolve()
+            }, 1000)
+        } else {
+            resolve()
+        }
+    })
+}
+
 router.get('/', function(req, res, next) {
     res.render('index', { title: 'Express' });
 });
@@ -334,9 +362,9 @@ router.get('/add_seed', async function(req, res, next) {
                 pat_list.pats = pat_list.pats
                 console.log(pat_list)
                     // console.log(pat_list)
-                DB.insert(req.app.locals.parse_config.pool_db, url_list)
-                DB.insert(req.app.locals.parse_config.src_link_cntdb, dir_detect)
-                DB.insert(req.app.locals.parse_config.pattern_db, pat_list)
+                save_rec(req.app.locals.parse_config.pool_db, url_list)
+                save_rec(req.app.locals.parse_config.src_link_cntdb, dir_detect)
+                save_rec(req.app.locals.parse_config.pattern_db, pat_list)
             })
         } else {
             res.json({
@@ -413,7 +441,7 @@ router.post('/edit_pat_db', async function(req, res, next) {
                 }
             }
             pat_list.pats = JSON.stringify(pat_list.pats)
-            DB.update(req.app.locals.parse_config.pattern_db, { key: src }, 'json', pat_list)
+            update_rec(req.app.locals.parse_config.pattern_db, src, 'json', pat_list)
             res.json({
                 status: true,
                 data: pat_table
@@ -432,7 +460,7 @@ router.post('/edit_pat_db', async function(req, res, next) {
                 }
             }
             pat_list.pats = JSON.stringify(pat_list.pats)
-            DB.insert(req.app.locals.parse_config.pattern_db, pat_list)
+            save_rec(req.app.locals.parse_config.pattern_db, pat_list)
             res.json({
                 status: true,
                 data: pat_table
@@ -487,7 +515,7 @@ router.post('/edit_linkcnt_db', async function(req, res, next) {
             cnt_table.src = req.body.src
             cnt_table.a_cnt = parseInt(cnt_data.rec.a_cnt) + parseInt(req.body.a_cnt)
             cnt_table.page_cnt = parseInt(cnt_data.rec.page_cnt) + parseInt(req.body.page_cnt)
-            var update_rst = await DB.update(req.app.locals.parse_config.src_link_cntdb, { key: req.body.src }, 'json', cnt_table)
+            var update_rst = await update_rec(req.app.locals.parse_config.src_link_cntdb, { key: req.body.src }, 'json', cnt_table)
             res.json({
                 status: true,
                 data: cnt_table
@@ -497,7 +525,7 @@ router.post('/edit_linkcnt_db', async function(req, res, next) {
             cnt_table.a_cnt = parseInt(req.body.a_cnt)
             cnt_table.page_cnt = parseInt(req.body.page_cnt)
             cnt_table.src = req.body.src
-            DB.insert(req.app.locals.parse_config.src_link_cntdb, cnt_table)
+            save_rec(req.app.locals.parse_config.src_link_cntdb, cnt_table)
             res.json({
                 status: true,
                 data: cnt_table

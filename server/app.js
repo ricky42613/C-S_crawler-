@@ -111,7 +111,7 @@ async function get_from_pool(skip) {
                     } else {
                         var promise = new Promise(async function(resolve, reject) {
                             update_rec(rsp[cnt].UrlCode, 'text', '@fetch:true')
-                            let update = await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
+                                // let update = await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
                             resolve()
                         }).then(() => {
                             cnt++
