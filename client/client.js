@@ -359,9 +359,6 @@ function parse_url_in_body(url, body) {
     let $ = cheerio.load(body)
     let main_url = urL.parse(url)
     let main_site = main_url.protocol + "//" + main_url.hostname
-    if ($('a').length == 0) {
-        console.log('no url in ' + url)
-    }
     let links_in_page = $('a').get().map(item => {
         let data = {}
         if (typeof $(item).attr('href') != "undefined") {
@@ -437,7 +434,6 @@ function fetch_url(url, cb) {
                 } else {
                     data.status = false
                     data.msg = r.statusCode.toString()
-                    console.log(`${url} ${data.msg}`)
                     cb(data)
                 }
             }
@@ -553,9 +549,7 @@ var promise = new Promise(async function(resolve, reject) {
                                     }
                                     try {
                                         data.body = minify($('body').html(), { collapseWhitespace: true, removeEmptyElements: true, removeComments: true })
-                                    } catch (e) {
-                                        console.log(`parse ${data.url}'s body fail`)
-                                    }
+                                    } catch (e) {}
                                     // let ban = 0
                                     if (detect_table[domainCode] == undefined) {
                                         detect_table[domainCode] = { content: main_t[1], cnt: 1 }
@@ -566,7 +560,6 @@ var promise = new Promise(async function(resolve, reject) {
                                                 em.emit('ban', domain)
                                                 ban = 1
                                             }
-                                            console.log(`${url}再次fetch到${detect_table[domainCode].content}`)
                                         } else {
                                             detect_table[domainCode] = { content: main_t, cnt: 1 }
                                         }
@@ -590,20 +583,14 @@ var promise = new Promise(async function(resolve, reject) {
                                     save_url = save_url.concat(urls_in_page.link_in_page)
                                     link_triples = link_triples.concat(urls_in_page.link_triples)
                                     DB.update(config.pool_db, { key: data.UrlCode }, 'text', "@fetch_time:" + data.fetch_time)
-                                    save_data.push(data)
-                                        // }
-                                        // cnt += 1
-                                        // if (cnt == total_len) {
-                                        //     cb_mid(null)
-                                        // }
+                                    save_data.push(data);
+                                    // }
                                     cb()
                                 } else if (rsp_msg.msg == 'err') {
-                                    console.log(`fetch ${url}失敗`)
                                     if (detect_table[domainCode] == undefined) {
                                         detect_table[domainCode] = { content: 'err', cnt: 1 }
                                     } else {
                                         if (detect_table[domainCode].content == 'err') {
-                                            console.log(`${url}再次fetch到${detect_table[domainCode].content}`)
                                             detect_table[domainCode].cnt++;
                                             if (detect_table[domainCode].cnt == config.fail_time_limit) {
                                                 em.emit('ban', domain)
@@ -612,35 +599,17 @@ var promise = new Promise(async function(resolve, reject) {
                                             detect_table[domainCode] = { content: 'err', cnt: 1 }
                                         }
                                     }
-                                    console.log('反還失敗url')
                                     DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
-                                        // cnt += 1
-                                        // if (cnt == total_len) {
-                                        //     cb_mid(null)
-                                        // }
                                     cb()
                                 } else if (rsp_msg.msg == 'break_url') {
                                     console.log(`${url} is broken`)
-                                        // cnt += 1
-                                        // if (cnt == total_len) {
-                                        //     cb_mid(null)
-                                        // }
                                     cb()
                                 } else {
-                                    // DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
-                                    // cnt += 1
-                                    // if (cnt == total_len) {
-                                    //     cb_mid(null)
-                                    // }
                                     cb()
                                 }
                             })
                         } else {
                             DB.update(config.pool_db, { key: md5(url) }, 'text', "@fetch:false")
-                                // cnt += 1
-                                // if (cnt == total_len) {
-                                //     cb_mid(null)
-                                // }
                             cb()
                         }
                     })()
@@ -652,20 +621,6 @@ var promise = new Promise(async function(resolve, reject) {
                 })
             },
             function(cb_mid2) {
-                save_url = save_url.unique()
-                console.log(`預計儲存record${save_data.length}`)
-                if (save_data.length) {
-                    DB.insert(config.record_db, save_data)
-                }
-                if (save_url.length) {
-                    DB.insert(config.pool_db, save_url)
-                }
-                if (link_triples.length) {
-                    DB.insert(config.triple_db, link_triples)
-                }
-                save_data = []
-                save_url = []
-                link_triples = []
                 if (url_pool.length == 0) {
                     for (let src in link_cnt_per_src) {
                         update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
@@ -693,6 +648,20 @@ var promise = new Promise(async function(resolve, reject) {
                     //             }
                     //         // })
                     // }
+                    save_url = save_url.unique()
+                    console.log(`預計儲存record${save_data.length}`)
+                    if (save_data.length) {
+                        DB.insert(config.record_db, save_data)
+                    }
+                    if (save_url.length) {
+                        DB.insert(config.pool_db, save_url)
+                    }
+                    if (link_triples.length) {
+                        DB.insert(config.triple_db, link_triples)
+                    }
+                    save_data = []
+                    save_url = []
+                    link_triples = []
                     link_cnt_per_src = {}
                     pat_table = {}
                     console.log('pool已空，向server請求連結')
