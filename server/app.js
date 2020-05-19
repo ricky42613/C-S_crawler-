@@ -42,7 +42,7 @@ function update_rec(key, format, rec) {
     return new Promise(async function(resolve, reject) {
         let r = await DB.update(config.pool_db, { key: key }, format, rec)
         if (!r.status) {
-            setTimeout(function() {
+            setTimeout(async function() {
                 await update_rec(key, format, rec)
                 resolve()
             }, 1000)
