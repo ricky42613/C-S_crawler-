@@ -87,7 +87,7 @@ async function get_from_pool(skip) {
     console.log("開始檢查pool")
     if (ps > 0 && !shutdown_signal) {
         console.log("開始補充")
-        var rsp = await DB.query(config.pool_db, "@fetch:false", skip, 10000)
+        var rsp = await DB.query(config.pool_db, "@fetch:false", skip, ps)
         if (rsp.status) {
             rsp.data.result.recs = rsp.data.result.recs.filter(item => {
                 return !item.hasOwnProperty('error')
@@ -130,7 +130,7 @@ async function get_from_pool(skip) {
 }
 
 get_from_pool(1)
-setInterval(get_from_pool, 60 * 1000, 1)
+setInterval(get_from_pool, 15 * 1000, 1)
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
