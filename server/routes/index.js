@@ -201,7 +201,7 @@ function update_rec(db, key, format, rec) {
     return new Promise(async function(resolve, reject) {
         let r = await DB.update(db, { key: key }, format, rec)
         if (!r.status) {
-            setTimeout(function() {
+            setTimeout(async function() {
                 await update_rec(db, key, format, rec)
                 resolve()
             }, 1000)
@@ -215,7 +215,7 @@ function save_rec(db, data) {
     return new Promise(async function(resolve, reject) {
         let r = await DB.insert(db, data)
         if (!r.status) {
-            setTimeout(function() {
+            setTimeout(async function() {
                 await save_rec(db, data)
                 resolve()
             }, 1000)
