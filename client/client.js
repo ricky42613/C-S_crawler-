@@ -3,22 +3,21 @@ var async = require('async')
 var request = require('request')
 var dns = require('dns')
 var dnscache = require('dnscache')({
-        "enable": true,
-        "ttl": 300,
-        "cachesize": 1000
-    })
-    // var memcached = require('memcached')
-    // var cache = new memcached('localhost:8888')
+    "enable": true,
+    "ttl": 300,
+    "cachesize": 1000
+});
+// var memcached = require('memcached')
+// var cache = new memcached('localhost:8888')
 var GetMain = require('../gais_api/parseMain')
 var GAIS = require('../gais_api/gais')
 var urL = require('url')
 var md5 = require('md5')
 var events = require('events')
 var em = new events.EventEmitter()
-var minify = require('html-minifier').minify
 var config = {
     user: "",
-    machine: "nubot70.taiwin.tw:5802",
+    machine: "gaisdb.ccu.edu.tw:5805",
     server: "http://140.123.101.150:3080",
     pool_db: "dict_pool",
     record_db: "dict_record",
@@ -575,9 +574,6 @@ var promise = new Promise(async function(resolve, reject) {
                                             }
                                         })
                                     }
-                                    try {
-                                        data.body = minify($('body').html(), { collapseWhitespace: true, removeEmptyElements: true, removeComments: true })
-                                    } catch (e) {}
                                     // let ban = 0
                                     if (detect_table[domainCode] == undefined) {
                                         detect_table[domainCode] = { content: main_t[1], cnt: 1 }
