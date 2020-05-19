@@ -129,6 +129,8 @@ method.insert = function(db, record) {
                 try {
                     msg.status = true
                 } catch (e) {
+                    msg.status = false
+                    msg.err = e
                     console.log(e)
                 }
                 resolve(msg)
