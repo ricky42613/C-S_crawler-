@@ -165,8 +165,6 @@ method.update = function(db, identify, format, field) {
                 form: option
             }, function(e, r, b) {
                 if (e) {
-                    console.log('更新失敗')
-                    console.log(e.code)
                     let msg = {}
                     msg.status = false
                     msg.err = e

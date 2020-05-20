@@ -105,23 +105,19 @@ async function get_from_pool(skip) {
             console.log("取回link record，目前池裡共" + app.locals.link_pool.length + "筆")
             if (rsp.length) {
                 let cnt = 0
-                async.forever(function(cb) {
-                    if (cnt == rsp.length || shutdown_signal) {
-                        cb('done')
-                    } else {
-                        var promise = new Promise(async function(resolve, reject) {
-                            update_rec(rsp[cnt].UrlCode, 'text', '@fetch:true')
-                                // let update = await DB.update(config.pool_db, { key: rsp[cnt].UrlCode }, 'text', "@fetch:true")
-                            resolve()
-                        }).then(() => {
-                            cnt++
-                            if (cnt % 100 == 0) {
-                                console.log(`已更新${cnt}個url`)
-                            }
-                            cb(null)
-                        })
-                    }
+                async.eachLimit(rsp, 30, function(item, cb) {
+                    (async function() {
+                        await update_rec(item.UrlCode, 'text', '@fetch:true')
+                        cnt++
+                        if (cnt % 100 == 0) {
+                            console.log(`已更新${cnt}個url`)
+                        }
+                        cb()
+                    })()
                 }, function(err) {
+                    if (err) {
+                        console.log(err)
+                    }
                     console.log('已更新取回url')
                 })
             }
@@ -130,7 +126,7 @@ async function get_from_pool(skip) {
 }
 
 get_from_pool(1)
-setInterval(get_from_pool, 15 * 1000, -1)
+setInterval(get_from_pool, 60 * 1000, -1)
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));

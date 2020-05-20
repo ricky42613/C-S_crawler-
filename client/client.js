@@ -19,6 +19,7 @@ var config = {
     user: "",
     machine: "gaisdb.ccu.edu.tw:5805",
     server: "http://140.123.101.150:3080",
+    server: "http://127.0.0.1:3080",
     pool_db: "dict_pool",
     record_db: "dict_record",
     pattern_db: "pattern",
@@ -314,7 +315,6 @@ function get_url_from_server(cb) {
                 let rsp = JSON.parse(r.body)
                 let data = {}
                 if (rsp.status) {
-                    console.log(rsp.url_list)
                     data.status = true
                     data.pool = rsp.url_list
                     cb(data)
@@ -521,18 +521,19 @@ var promise = new Promise(async function(resolve, reject) {
         }, config.wait_pool_fill);
     })
 }).then(() => {
+    let save_data = []
+    let save_url = []
+    let link_triples = []
     let link_cnt_per_src = {}
     let pat_table = {}
     async.forever(function(cb) {
-        save_data = []
-        save_url = []
-        link_triples = []
         async.waterfall([
             function(cb_mid) {
                 let url_list = url_pool.splice(0, config.batch_size)
                 console.log(`開始處理${url_list.length}個連結`)
-                async.eachLimit(url_list, config.batch_size, function(url, cb) {
+                async.eachLimit(url_list, config.batch_size, function(item, each_cb) {
                     (async function() {
+                        let url = item.url
                         let domain = urL.parse(encodeURI(url.trim())).hostname
                             // em.emit('check_src_pat', `pat_${get_source(domain)}`)
                             // em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
@@ -618,7 +619,7 @@ var promise = new Promise(async function(resolve, reject) {
                                     await update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
                                     save_data.push(data);
                                     // }
-                                    cb()
+                                    each_cb()
                                 } else if (rsp_msg.msg == 'err') {
                                     if (detect_table[domainCode] == undefined) {
                                         detect_table[domainCode] = { content: 'err', cnt: 1 }
@@ -633,17 +634,17 @@ var promise = new Promise(async function(resolve, reject) {
                                         }
                                     }
                                     await update_rec(md5(url), 'text', '@fetch:false')
-                                    cb()
+                                    each_cb()
                                 } else if (rsp_msg.msg == 'break_url') {
                                     console.log(`${url} is broken`)
-                                    cb()
+                                    each_cb()
                                 } else {
-                                    cb()
+                                    each_cb()
                                 }
-                            })
+                            });
                         } else {
                             await update_rec(md5(url), 'text', '@fetch:false')
-                            cb()
+                            each_cb()
                         }
                     })()
                 }, function(err) {
@@ -655,7 +656,7 @@ var promise = new Promise(async function(resolve, reject) {
             },
             function(cb_mid2) {
                 save_url = save_url.unique()
-                console.log(`預計儲存record${save_data.length}`)
+                console.log(`預計儲存${save_data.length}筆record`)
                 if (save_data.length) {
                     save_rec(config.record_db, save_data)
                 }
@@ -665,6 +666,9 @@ var promise = new Promise(async function(resolve, reject) {
                 if (link_triples.length) {
                     save_rec(config.triple_db, link_triples)
                 }
+                save_data = []
+                save_url = []
+                link_triples = []
                 if (url_pool.length == 0) {
                     // for (let src in link_cnt_per_src) {
                     // update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
