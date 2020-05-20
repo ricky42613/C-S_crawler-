@@ -314,11 +314,9 @@ function get_url_from_server(cb) {
                 let rsp = JSON.parse(r.body)
                 let data = {}
                 if (rsp.status) {
-                    let pool = rsp.url_list.map(item => {
-                        return item.url
-                    })
+                    console.log(rsp.url_list)
                     data.status = true
-                    data.pool = pool
+                    data.pool = rsp.url_list
                     cb(data)
                 } else {
                     data.status = false
@@ -533,8 +531,6 @@ var promise = new Promise(async function(resolve, reject) {
             function(cb_mid) {
                 let url_list = url_pool.splice(0, config.batch_size)
                 console.log(`開始處理${url_list.length}個連結`)
-                let cnt = 0
-                let total_len = url_list.length
                 async.eachLimit(url_list, config.batch_size, function(url, cb) {
                     (async function() {
                         let domain = urL.parse(encodeURI(url.trim())).hostname
