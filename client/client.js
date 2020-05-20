@@ -521,12 +521,12 @@ var promise = new Promise(async function(resolve, reject) {
         }, config.wait_pool_fill);
     })
 }).then(() => {
-    let save_data = []
-    let save_url = []
-    let link_triples = []
     let link_cnt_per_src = {}
     let pat_table = {}
     async.forever(function(cb) {
+        save_data = []
+        save_url = []
+        link_triples = []
         async.waterfall([
             function(cb_mid) {
                 let url_list = url_pool.splice(0, config.batch_size)
@@ -665,23 +665,20 @@ var promise = new Promise(async function(resolve, reject) {
                 if (link_triples.length) {
                     save_rec(config.triple_db, link_triples)
                 }
-                save_data = []
-                save_url = []
-                link_triples = []
                 if (url_pool.length == 0) {
-                    for (let src in link_cnt_per_src) {
-                        update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
-                            // if (success) {
-                            //     cache.set(`linkcnt_${src}`, rst, 3 * 60 * 60, function(err) {
-                            //         if (err) {
-                            //             console.log(err)
-                            //         }
-                            //     })
-                            // } else {
-                            //     console.log(rst)
-                            // }
-                        });
-                    }
+                    // for (let src in link_cnt_per_src) {
+                    // update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
+                    // if (success) {
+                    //     cache.set(`linkcnt_${src}`, rst, 3 * 60 * 60, function(err) {
+                    //         if (err) {
+                    //             console.log(err)
+                    //         }
+                    //     })
+                    // } else {
+                    //     console.log(rst)
+                    // }
+                    // });
+                    // }
                     //         for (let src in pat_table) {
                     //             // update_pat_record(src, pat_table[src], (success, rst) => {
                     //             if (success) {
