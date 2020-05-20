@@ -19,7 +19,6 @@ var config = {
     user: "",
     machine: "gaisdb.ccu.edu.tw:5805",
     server: "http://140.123.101.150:3080",
-    server: "http://127.0.0.1:3080",
     pool_db: "dict_pool",
     record_db: "dict_record",
     pattern_db: "pattern",
@@ -516,6 +515,8 @@ var promise = new Promise(async function(resolve, reject) {
                     } else {
                         console.log("取回數量0,重新索取")
                     }
+                } else {
+                    console.log(r.msg)
                 }
             })
         }, config.wait_pool_fill);
@@ -617,7 +618,8 @@ var promise = new Promise(async function(resolve, reject) {
                                     }
                                     save_url = save_url.concat(urls_in_page.link_in_page)
                                     link_triples = link_triples.concat(urls_in_page.link_triples)
-                                    await update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
+                                        // await update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
+                                    update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
                                     save_data.push(data);
                                     // }
                                     each_cb()
@@ -634,7 +636,8 @@ var promise = new Promise(async function(resolve, reject) {
                                             detect_table[domainCode] = { content: 'err', cnt: 1 }
                                         }
                                     }
-                                    await update_rec(md5(url), 'text', '@fetch:false')
+                                    // await update_rec(md5(url), 'text', '@fetch:false')
+                                    update_rec(md5(url), 'text', '@fetch:false')
                                     each_cb()
                                 } else if (rsp_msg.msg == 'break_url') {
                                     console.log(`${url} is broken`)
@@ -644,7 +647,8 @@ var promise = new Promise(async function(resolve, reject) {
                                 }
                             });
                         } else {
-                            await update_rec(md5(url), 'text', '@fetch:false')
+                            // await update_rec(md5(url), 'text', '@fetch:false')
+                            update_rec(md5(url), 'text', '@fetch:false')
                             each_cb()
                         }
                     })()

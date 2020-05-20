@@ -285,13 +285,14 @@ router.get('/get_url', async function(req, res, next) {
                 msg: '使用者已消失'
             })
         } else {
-            data.url_list = req.app.locals.link_pool.slice(location, location + size)
+            data.url_list = req.app.locals.link_pool.slice(0, size)
             if (data.url_list.length) {
                 console.log(`pool原長度${req.app.locals.link_pool.length}`)
                 req.app.locals.link_pool.splice(location, size)
                 console.log(`pool切割後長度${req.app.locals.link_pool.length}`)
                 res.json(data)
             } else {
+                console.log(`使用者位於${location}`)
                 res.json({
                     status: false,
                     msg: 'queue已空'
