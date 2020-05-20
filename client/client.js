@@ -537,7 +537,8 @@ var promise = new Promise(async function(resolve, reject) {
                         let domain = urL.parse(encodeURI(url.trim())).hostname
                             // em.emit('check_src_pat', `pat_${get_source(domain)}`)
                             // em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
-                        let domainCode = md5(domain)
+
+                        let domainCode = domain == null ? "" : md5(domain)
                         if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
                             fetch_url(url, async(rsp_msg) => {
                                 if (rsp_msg.status) {
@@ -708,10 +709,7 @@ var promise = new Promise(async function(resolve, reject) {
                                     clearInterval(timer)
                                 }
                             } else {
-                                if (r.msg != 'queue已空') {
-                                    cb(r.msg)
-                                    clearInterval(timer)
-                                }
+                                console.log(r.msg)
                             }
                         })
                     }, config.wait_pool_fill);
