@@ -542,7 +542,7 @@ var promise = new Promise(async function(resolve, reject) {
                             // em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
                         let domainCode = md5(domain)
                         if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
-                            fetch_url(url.trim(), async(rsp_msg) => {
+                            fetch_url(url, async(rsp_msg) => {
                                 if (rsp_msg.status) {
                                     let body = rsp_msg.msg
                                     let $ = cheerio.load(body)
@@ -726,6 +726,7 @@ var promise = new Promise(async function(resolve, reject) {
             }
         ])
     }, function(err) {
+        console.log('leave loop')
         console.log(err)
     })
 });
