@@ -130,7 +130,7 @@ async function get_from_pool(skip) {
 }
 
 get_from_pool(1)
-setInterval(get_from_pool, 15 * 1000, 1)
+setInterval(get_from_pool, 15 * 1000, -1)
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
