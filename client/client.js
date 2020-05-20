@@ -40,26 +40,39 @@ var linkcnt_ctrl = 0
 
 function shutDown() {
     console.log('process準備終止')
-    request({
-        url: `${config.server}/died`,
-        method: 'POST',
-        form: {
-            url_pool: JSON.stringify(url_pool),
-            user: config.user
-        }
-    }, function(e, r, b) {
-        if (e) {
-            console.log('發生錯誤')
-            console.log(e)
+    let t = 0
+    async.forever(function(next) {
+        let start = t * 200
+        let end = (t + 1) * 200
+        let current = url_pool.slice(start, end)
+        if (current.length == 0) {
+            next('done')
         } else {
-            rsp = JSON.parse(r.body)
-            if (rsp.status) {
-                console.log('返還完成')
-            } else {
-                console.log('發生錯誤')
-                console.log(rsp.msg)
-            }
+            request({
+                url: `${config.server}/died`,
+                method: 'POST',
+                form: {
+                    url_pool: JSON.stringify(current),
+                    user: config.user
+                }
+            }, function(e, r, b) {
+                if (e) {
+                    console.log('發生錯誤')
+                    console.log(e)
+                } else {
+                    rsp = JSON.parse(r.body)
+                    if (rsp.status) {
+                        console.log('返還完成')
+                    } else {
+                        console.log('發生錯誤')
+                        console.log(rsp.msg)
+                    }
+                }
+                t++
+                next(null)
+            })
         }
+    }, function(err) {
         process.exit()
     })
 }
@@ -466,7 +479,7 @@ function update_rec(key, format, rec) {
     return new Promise(async function(resolve, reject) {
         let r = await DB.update(config.pool_db, { key: key }, format, rec)
         if (!r.status) {
-            setTimeout(function() {
+            setTimeout(async function() {
                 await update_rec(key, format, rec)
                 resolve()
             }, 1000)
@@ -480,7 +493,7 @@ function save_rec(db, data) {
     return new Promise(async function(resolve, reject) {
         let r = await DB.insert(db, data)
         if (!r.status) {
-            setTimeout(function() {
+            setTimeout(async function() {
                 await save_rec(db, data)
                 resolve()
             }, 1000)
@@ -645,6 +658,20 @@ var promise = new Promise(async function(resolve, reject) {
                 })
             },
             function(cb_mid2) {
+                save_url = save_url.unique()
+                console.log(`預計儲存record${save_data.length}`)
+                if (save_data.length) {
+                    save_rec(config.record_db, save_data)
+                }
+                if (save_url.length) {
+                    save_rec(config.pool_db, save_url)
+                }
+                if (link_triples.length) {
+                    save_rec(config.triple_db, link_triples)
+                }
+                save_data = []
+                save_url = []
+                link_triples = []
                 if (url_pool.length == 0) {
                     for (let src in link_cnt_per_src) {
                         update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
@@ -672,20 +699,6 @@ var promise = new Promise(async function(resolve, reject) {
                     //             }
                     //         // })
                     // }
-                    save_url = save_url.unique()
-                    console.log(`預計儲存record${save_data.length}`)
-                    if (save_data.length) {
-                        save_rec(config.record_db, save_data)
-                    }
-                    if (save_url.length) {
-                        save_rec(config.pool_db, save_url)
-                    }
-                    if (link_triples.length) {
-                        save_rec(config.triple_db, link_triples)
-                    }
-                    save_data = []
-                    save_url = []
-                    link_triples = []
                     link_cnt_per_src = {}
                     pat_table = {}
                     console.log('pool已空，向server請求連結')
