@@ -1,8 +1,10 @@
 var cheerio = require('cheerio')
 var async = require('async')
 
-const text_tag = ['b', 'u', 'em', 'strong', 'font', 'p', 'span']
+const text_tag = ['b', 'u', 'em', 'strong', 'font', 'p', 'span', 'h1', 'h2', 'h3', 'h4']
 const weight_table = {
+    'h1': 8,
+    'h2': 8,
     'p': 8,
     'div': 4,
     'span': 2
@@ -30,8 +32,8 @@ function get_main_text(body) {
                             return this.type === 'text'
                         }).each((idx, inneritem2) => {
                             // if ($(inneritem2).text().length > 6) {
-                            maintext = maintext + $(inneritem2).text().trim()
-                            score = score + $(inneritem2).text().trim().length * weight_table['div']
+                            maintext = maintext + $(inneritem2).text().trim().replace(/[\n|\t|\r|\s]/g, "")
+                            score = score + $(inneritem2).text().trim().replace(/[\n|\t|\r|\s]/g, "").length * weight_table['div']
                                 // }
                         })
                     })

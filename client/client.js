@@ -28,7 +28,7 @@ var config = {
     pool_size: 1000,
     batch_size: 30,
     timeout: 500,
-    req_timeout: 10000,
+    req_timeout: 3000,
     wait_pool_fill: 3000
 }
 var DB = new GAIS(config.machine)
@@ -371,14 +371,18 @@ function parse_url_in_body(url, body) {
     let links_in_page = $('a').get().map(item => {
         let data = {}
         if (typeof $(item).attr('href') != "undefined") {
-            if ($(item).attr('href').slice(0, 4).indexOf('http') != -1) {
+            if ($(item).attr('href').trim().slice(0, 4).indexOf('http') != -1) {
                 data.url = $(item).attr('href')
-            } else if ($(item).attr('href')[0] == '/') {
-                if ($(item).attr('href')[1] == '/') {
+            } else if ($(item).attr('href').trim()[0] == '/') {
+                if ($(item).attr('href').trim()[1] == '/') {
                     data.url = main_url.protocol + $(item).attr('href').trim()
                 } else {
                     data.url = main_site + $(item).attr('href').trim()
                 }
+            } else if ($(item).attr('href').trim()[0] == ':') {
+                data.url = main_url.protocol.slice(0, -1) + $(item).attr('href').trim()
+            } else if ($(item).attr('href').trim()[0] == '#') {
+                data.url = 'undefined'
             } else {
                 let cut = url.lastIndexOf('/') + 1
                 let basic = url.slice(0, cut)
@@ -386,7 +390,7 @@ function parse_url_in_body(url, body) {
             }
             data.fetch = "false"
             data.fetch_time = "--"
-            data.link_text = $(item).text()
+            data.link_text = $(item).text().replace(/[\n|\t|\r|\s]/g, "")
             if (data.url.indexOf('#') != -1) {
                 let idx = data.url.indexOf('#')
                 data.url = data.url.slice(0, idx)
@@ -405,7 +409,7 @@ function parse_url_in_body(url, body) {
     let link_triples = links_in_page.map(item => {
         let triple = {}
         triple.target = item.url
-        triple.link_text = item.link_text
+        triple.link_text = item.link_text.replace(/[\n|\t|\r|\s]/g, "")
         triple.source = url
         triple.tid = md5(triple.target + triple.source)
         return triple
@@ -431,8 +435,9 @@ function fetch_url(url, cb) {
                         cb(rsp)
                     })
                 } else {
+                    console.log(e)
                     data.status = false
-                    data.msg = 'err'
+                    data.msg = e.code
                     cb(data)
                 }
             } else {
@@ -638,17 +643,22 @@ var promise = new Promise(async function(resolve, reject) {
                                     }
                                     // await update_rec(md5(url), 'text', '@fetch:false')
                                     update_rec(md5(url), 'text', '@fetch:false')
+                                    console.log(`${url}`)
+                                    console.log(rsp_msg)
                                     each_cb()
                                 } else if (rsp_msg.msg == 'break_url') {
                                     console.log(`${url} is broken`)
                                     each_cb()
                                 } else {
+                                    console.log(url)
+                                    console.log(rsp_msg)
                                     each_cb()
                                 }
                             });
                         } else {
                             // await update_rec(md5(url), 'text', '@fetch:false')
                             update_rec(md5(url), 'text', '@fetch:false')
+                            console.log(`${url}可能被ban了`)
                             each_cb()
                         }
                     })()
