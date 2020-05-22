@@ -228,72 +228,82 @@ async.forever(function(next) {
             query_rid(rid_list, rsp => {
                 if (rsp.status) {
                     console.log(`開始從rid:${rid_list[0]}起處理4096筆資料`)
-                    async.eachLimit(rsp.record, 30, function(item, callback) {
-                        let url = item.rec.url
-                        fetch_url(url, async rst => {
-                            if (rst.status) {
-                                let body = rst.msg
-                                let $ = cheerio.load(body)
-                                let data = {}
-                                data.title = $('title').text().trim()
-                                data.url = url
-                                data.UrlCode = md5(url)
-                                data.fetch_time = new Date()
-                                data.key_words = $('meta[name="keywords"]').attr("content")
-                                data.description = $('meta[name="description"]').attr("content")
-                                $('script').remove()
-                                $('style').remove()
-                                $('noscript').remove()
-                                $('*').each(function(idx, elem) {
-                                    for (var key in elem.attribs) {
-                                        if (key != 'id' && key != 'class') {
-                                            $(this).removeAttr(key)
+                    async.forever(function(inner_next) {
+                        let current_batch = rsp.record.splice(0, 30)
+                        if (current_batch.length) {
+                            async.eachLimit(current_batch, 30, function(item, callback) {
+                                let url = item.rec.url
+                                fetch_url(url, async rst => {
+                                    if (rst.status) {
+                                        let body = rst.msg
+                                        let $ = cheerio.load(body)
+                                        let data = {}
+                                        data.title = $('title').text().trim()
+                                        data.url = url
+                                        data.UrlCode = md5(url)
+                                        data.fetch_time = new Date()
+                                        data.key_words = $('meta[name="keywords"]').attr("content")
+                                        data.description = $('meta[name="description"]').attr("content")
+                                        $('script').remove()
+                                        $('style').remove()
+                                        $('noscript').remove()
+                                        $('*').each(function(idx, elem) {
+                                            for (var key in elem.attribs) {
+                                                if (key != 'id' && key != 'class') {
+                                                    $(this).removeAttr(key)
+                                                }
+                                            }
+                                        });
+                                        data.domain = urL.parse(encodeURI(url.trim())).hostname
+                                        data.domainCode = data.domain == null ? "" : md5(data.domain)
+                                        let main_t = await GetMain.ParseHTML(body)
+                                        data.mainText = main_t[1]
+                                        let find_dns = await get_ip(data.domain)
+                                        if (find_dns == "error") {
+                                            data.host_ip = "404"
+                                        } else {
+                                            data.host_ip = find_dns
                                         }
+                                        let urls_in_page = parse_url_in_body(data.url, body)
+                                        save_url = save_url.concat(urls_in_page.link_in_page)
+                                        link_triples = link_triples.concat(urls_in_page.link_triples)
+                                        save_data.push(data);
+                                        callback()
+                                    } else {
+                                        console.log(url)
+                                        console.log(rst.msg)
+                                        callback()
                                     }
-                                });
-                                data.domain = urL.parse(encodeURI(url.trim())).hostname
-                                data.domainCode = data.domain == null ? "" : md5(data.domain)
-                                let main_t = await GetMain.ParseHTML(body)
-                                data.mainText = main_t[1]
-                                let find_dns = await get_ip(data.domain)
-                                if (find_dns == "error") {
-                                    data.host_ip = "404"
-                                } else {
-                                    data.host_ip = find_dns
-                                }
-                                let urls_in_page = parse_url_in_body(data.url, body)
-                                save_url = save_url.concat(urls_in_page.link_in_page)
-                                link_triples = link_triples.concat(urls_in_page.link_triples)
-                                save_data.push(data);
-                                callback()
-                            } else {
-                                console.log(url)
-                                console.log(rst.msg)
-                                callback()
-                            }
-                        })
-                    }, function(e) {
-                        if (e) {
-                            console.log(e)
-                        }
-                        (async function() {
-                            await save_rec(record_db, save_data)
-                            save_data = []
-                            fs.appendFile(url_file_path, JSON.stringify(save_url) + '\n', function(err) {
-                                if (err) {
-                                    console.log(err)
-                                }
-                                save_url = []
-                                fs.appendFile(triple_file_path, JSON.stringify(link_triples) + '\n', function(err) {
-                                    if (err) {
-                                        console.log(err)
-                                    }
-                                    link_triples = []
-                                    start += 4096
-                                    next(null)
                                 })
+                            }, function(e) {
+                                if (e) {
+                                    console.log(e)
+                                }
+                                (async function() {
+                                    console.log(`開始儲存${save_data.length}筆資料`)
+                                    await save_rec(record_db, save_data)
+                                    save_data = []
+                                    fs.appendFile(url_file_path, JSON.stringify(save_url) + '\n', function(err) {
+                                        if (err) {
+                                            console.log(err)
+                                        }
+                                        save_url = []
+                                        fs.appendFile(triple_file_path, JSON.stringify(link_triples) + '\n', function(err) {
+                                            if (err) {
+                                                console.log(err)
+                                            }
+                                            link_triples = []
+                                            inner_next(null)
+                                        })
+                                    })
+                                })()
                             })
-                        })()
+                        } else {
+                            start += 4096
+                            inner_next('done')
+                        }
+                    }, function(e) {
+                        next(null)
                     })
                 } else {
                     console.log(rid_list)
