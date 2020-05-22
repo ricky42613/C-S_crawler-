@@ -50,7 +50,6 @@ function query_rid(rid_list, cb) {
             let url_list = JSON.parse(r.body).result.filter(item => {
                 return item.hasOwnProperty('rec')
             })
-            console.log(url_list)
             data.record = url_list
         }
         cb(data)
