@@ -13,7 +13,9 @@ var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
 var record_db = "original_rec"
 var start = parseInt(process.argv[2])
 var url_file_path = `./url_${start}.txt`
+var url_file_cnt = 1
 var triple_file_path = `./triple_${start}.txt`
+var triple_file_cnt = 1
 var total_size = parseInt(process.argv[3])
 var END_RID = start + total_size
 var black_key_list = ['undefined', '../', 'javascript:', 'mailto:']
@@ -179,19 +181,24 @@ function fetch_url(url, cb) {
                     cb(data)
                 }
             } else {
-                if (r.headers["content-type"].indexOf("text/html") != -1) {
+                try {
                     if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
                         data.status = true
                         data.msg = r.body
                         cb(data)
                     } else {
-                        data.status = false
-                        data.msg = r.statusCode.toString()
+                        if (r.headers["content-type"].indexOf("text/html") != -1) {
+                            data.status = false
+                            data.msg = r.statusCode.toString()
+                        } else {
+                            data.status = false
+                            data.msg = 'not html file'
+                        }
                         cb(data)
                     }
-                } else {
+                } catch (e) {
                     data.status = false
-                    data.msg = 'not html file'
+                    data.msg = 'err'
                 }
             }
         })
@@ -280,9 +287,21 @@ async.forever(function(next) {
                                             }
                                         })
                                         await save_rec(record_db, data)
+                                        let stats = fs.statSync(url_file_path)
+                                        let fileSizeInBytes = stats["size"]
+                                        if (fileSizeInBytes > 200000000) {
+                                            url_file_path = url_file_path + "-" + url_file_cnt
+                                            url_file_cnt++
+                                        }
                                         fs.appendFile(url_file_path, save_url_str, function(err) {
                                             if (err) {
                                                 console.log(err)
+                                            }
+                                            let stats = fs.statSync(triple_file_path)
+                                            let fileSizeInBytes = stats["size"]
+                                            if (fileSizeInBytes > 200000000) {
+                                                triple_file_path = triple_file_path + "-" + triple_file_cnt
+                                                triple_file_cnt++
                                             }
                                             fs.appendFile(triple_file_path, save_triple_str, function(err) {
                                                 if (err) {
