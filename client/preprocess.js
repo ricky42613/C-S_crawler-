@@ -278,6 +278,13 @@ var p = new Promise(function(resolve, reject) {
                             } else {
                                 let current_batch = rsp.record.splice(0, batch)
                                 batch_cnt += 1
+                                console.log(`處理第${batch_cnt}個batch`)
+                                let offset = start + (batch_cnt * batch)
+                                fs.writeFileSync(conf, `${offset+'\n'}`, err => {
+                                    if (err) {
+                                        console.log(err)
+                                    }
+                                })
                                 if (current_batch.length) {
                                     async.eachLimit(current_batch, batch, function(item, callback) {
                                         if (shutdown_signal) {
@@ -342,8 +349,8 @@ var p = new Promise(function(resolve, reject) {
                                                         if (err) {
                                                             console.log(err)
                                                         }
-                                                        if (fs.existsSync(triple_file_path)) {
-                                                            let stats = fs.statSync(triple_file_path)
+                                                        if (fs.exists(triple_file_path)) {
+                                                            let stats = fs.stat(triple_file_path)
                                                             let fileSizeInBytes = stats["size"]
                                                             if (fileSizeInBytes > 200000000) {
                                                                 triple_file_path = triple_file_path + "-" + triple_file_cnt
@@ -376,6 +383,9 @@ var p = new Promise(function(resolve, reject) {
                                 }
                             }
                         }, function(e) {
+                            if (e) {
+                                console.log(e)
+                            }
                             next(null)
                         })
                     } else {
