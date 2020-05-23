@@ -179,14 +179,19 @@ function fetch_url(url, cb) {
                     cb(data)
                 }
             } else {
-                if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
-                    data.status = true
-                    data.msg = r.body
-                    cb(data)
+                if (r.headers["content-type"].indexOf("text/html") != -1) {
+                    if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
+                        data.status = true
+                        data.msg = r.body
+                        cb(data)
+                    } else {
+                        data.status = false
+                        data.msg = r.statusCode.toString()
+                        cb(data)
+                    }
                 } else {
                     data.status = false
-                    data.msg = r.statusCode.toString()
-                    cb(data)
+                    data.msg = 'not html file'
                 }
             }
         })
