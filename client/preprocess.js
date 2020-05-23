@@ -349,8 +349,8 @@ var p = new Promise(function(resolve, reject) {
                                                         if (err) {
                                                             console.log(err)
                                                         }
-                                                        if (fs.exists(triple_file_path)) {
-                                                            let stats = fs.stat(triple_file_path)
+                                                        if (fs.existsSync(triple_file_path)) {
+                                                            let stats = fs.statSync(triple_file_path)
                                                             let fileSizeInBytes = stats["size"]
                                                             if (fileSizeInBytes > 200000000) {
                                                                 triple_file_path = triple_file_path + "-" + triple_file_cnt
