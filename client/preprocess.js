@@ -183,17 +183,17 @@ function fetch_url(url, cb) {
             } else {
                 try {
                     if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
-                        data.status = true
-                        data.msg = r.body
-                        cb(data)
-                    } else {
                         if (r.headers["content-type"].indexOf("text/html") != -1) {
                             data.status = false
                             data.msg = r.statusCode.toString()
                         } else {
-                            data.status = false
-                            data.msg = 'not html file'
+                            data.status = true
+                            data.msg = r.body
                         }
+                        cb(data)
+                    } else {
+                        data.status = false
+                        data.msg = 'not html file'
                         cb(data)
                     }
                 } catch (e) {
