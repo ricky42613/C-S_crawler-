@@ -9,8 +9,8 @@ var fs = require('fs')
 var dns = require('dns')
 
 var sourceDB = 'http://nubot70.taiwin.tw:5802'
-var targetDB = new GAIS('nudb1.ddns.net:5804')
-var record_db = "test_record"
+var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
+var record_db = "original_rec"
 var start = parseInt(process.argv[2])
 var url_file_path = `./url_${start}.txt`
 var triple_file_path = `./triple_${start}.txt`
@@ -161,11 +161,11 @@ function fetch_url(url, cb) {
         request({
             url: url,
             method: 'GET',
-            timeout: 5000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'
-            },
-            rejectUnauthorized: false
+            timeout: 50000,
+            // headers: {
+            //     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'
+            // },
+            // rejectUnauthorized: false
         }, function(e, r, b) {
             let data = {}
             if (e) {
@@ -229,9 +229,9 @@ async.forever(function(next) {
                 if (rsp.status) {
                     console.log(`開始從rid:${rid_list[0]}起處理4096筆資料`)
                     async.forever(function(inner_next) {
-                        let current_batch = rsp.record.splice(0, 30)
+                        let current_batch = rsp.record.splice(0, 10)
                         if (current_batch.length) {
-                            async.eachLimit(current_batch, 30, function(item, callback) {
+                            async.eachLimit(current_batch, 10, function(item, callback) {
                                 let url = item.rec.url
                                 fetch_url(url, async rst => {
                                     if (rst.status) {
@@ -283,16 +283,29 @@ async.forever(function(next) {
                                     console.log(`開始儲存${save_data.length}筆資料`)
                                     await save_rec(record_db, save_data)
                                     save_data = []
-                                    fs.appendFile(url_file_path, JSON.stringify(save_url) + '\n', function(err) {
+                                    let save_url_str = ""
+                                    save_url.forEach(item => {
+                                        for (key in item) {
+                                            save_url_str += `@${key}:${item[key]}\n`
+                                        }
+                                    })
+                                    save_url = []
+
+                                    let save_triple_str = ""
+                                    link_triples.forEach(item => {
+                                        for (key in item) {
+                                            save_triple_str += `@${key}:${item[key]}\n`
+                                        }
+                                    })
+                                    link_triples = []
+                                    fs.appendFile(url_file_path, save_url_str, function(err) {
                                         if (err) {
                                             console.log(err)
                                         }
-                                        save_url = []
-                                        fs.appendFile(triple_file_path, JSON.stringify(link_triples) + '\n', function(err) {
+                                        fs.appendFile(triple_file_path, save_triple_str, function(err) {
                                             if (err) {
                                                 console.log(err)
                                             }
-                                            link_triples = []
                                             inner_next(null)
                                         })
                                     })
