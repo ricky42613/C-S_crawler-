@@ -287,21 +287,26 @@ async.forever(function(next) {
                                             }
                                         })
                                         await save_rec(record_db, data)
-                                        let stats = fs.statSync(url_file_path)
-                                        let fileSizeInBytes = stats["size"]
-                                        if (fileSizeInBytes > 200000000) {
-                                            url_file_path = url_file_path + "-" + url_file_cnt
-                                            url_file_cnt++
+                                        if (fs.existsSync(url_file_path)) {
+                                            //file exists
+                                            let stats = fs.statSync(url_file_path)
+                                            let fileSizeInBytes = stats["size"]
+                                            if (fileSizeInBytes > 200000000) {
+                                                url_file_path = url_file_path + "-" + url_file_cnt
+                                                url_file_cnt++
+                                            }
                                         }
                                         fs.appendFile(url_file_path, save_url_str, function(err) {
                                             if (err) {
                                                 console.log(err)
                                             }
-                                            let stats = fs.statSync(triple_file_path)
-                                            let fileSizeInBytes = stats["size"]
-                                            if (fileSizeInBytes > 200000000) {
-                                                triple_file_path = triple_file_path + "-" + triple_file_cnt
-                                                triple_file_cnt++
+                                            if (fs.existsSync(triple_file_path)) {
+                                                let stats = fs.statSync(triple_file_path)
+                                                let fileSizeInBytes = stats["size"]
+                                                if (fileSizeInBytes > 200000000) {
+                                                    triple_file_path = triple_file_path + "-" + triple_file_cnt
+                                                    triple_file_cnt++
+                                                }
                                             }
                                             fs.appendFile(triple_file_path, save_triple_str, function(err) {
                                                 if (err) {
