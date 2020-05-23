@@ -212,9 +212,6 @@ function save_rec(db, data) {
     })
 }
 
-let link_triples = []
-let save_data = []
-let save_url = []
 async.forever(function(next) {
     if (start < END_RID) {
         var p = new Promise(function(resolve, reject) {
@@ -265,10 +262,30 @@ async.forever(function(next) {
                                             data.host_ip = find_dns
                                         }
                                         let urls_in_page = parse_url_in_body(data.url, body)
-                                        save_url = save_url.concat(urls_in_page.link_in_page)
-                                        link_triples = link_triples.concat(urls_in_page.link_triples)
-                                        save_data.push(data);
-                                        callback()
+                                        let save_url_str = ""
+                                        urls_in_page.link_in_page.forEach(item => {
+                                            for (key in item) {
+                                                save_url_str += `@${key}:${item[key]}\n`
+                                            }
+                                        })
+                                        let save_triple_str = ""
+                                        urls_in_page.link_triples.forEach(item => {
+                                            for (key in item) {
+                                                save_triple_str += `@${key}:${item[key]}\n`
+                                            }
+                                        })
+                                        await save_rec(record_db, data)
+                                        fs.appendFile(url_file_path, save_url_str, function(err) {
+                                            if (err) {
+                                                console.log(err)
+                                            }
+                                            fs.appendFile(triple_file_path, save_triple_str, function(err) {
+                                                if (err) {
+                                                    console.log(err)
+                                                }
+                                                callback()
+                                            })
+                                        })
                                     } else {
                                         console.log(url)
                                         console.log(rst.msg)
@@ -279,37 +296,7 @@ async.forever(function(next) {
                                 if (e) {
                                     console.log(e)
                                 }
-                                (async function() {
-                                    console.log(`開始儲存${save_data.length}筆資料`)
-                                    await save_rec(record_db, save_data)
-                                    save_data = []
-                                    let save_url_str = ""
-                                    save_url.forEach(item => {
-                                        for (key in item) {
-                                            save_url_str += `@${key}:${item[key]}\n`
-                                        }
-                                    })
-                                    save_url = []
-
-                                    let save_triple_str = ""
-                                    link_triples.forEach(item => {
-                                        for (key in item) {
-                                            save_triple_str += `@${key}:${item[key]}\n`
-                                        }
-                                    })
-                                    link_triples = []
-                                    fs.appendFile(url_file_path, save_url_str, function(err) {
-                                        if (err) {
-                                            console.log(err)
-                                        }
-                                        fs.appendFile(triple_file_path, save_triple_str, function(err) {
-                                            if (err) {
-                                                console.log(err)
-                                            }
-                                            inner_next(null)
-                                        })
-                                    })
-                                })()
+                                inner_next(null)
                             })
                         } else {
                             start += 4096
