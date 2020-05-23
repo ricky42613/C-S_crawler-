@@ -183,9 +183,9 @@ function fetch_url(url, cb) {
             } else {
                 try {
                     if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
-                        if (r.headers["content-type"].indexOf("text/html") != -1) {
+                        if (r.headers["content-type"].indexOf("text/html") == -1) {
                             data.status = false
-                            data.msg = r.statusCode.toString()
+                            data.msg = 'not html file'
                         } else {
                             data.status = true
                             data.msg = r.body
@@ -193,7 +193,7 @@ function fetch_url(url, cb) {
                         cb(data)
                     } else {
                         data.status = false
-                        data.msg = 'not html file'
+                        data.msg = r.statusCode.toString()
                         cb(data)
                     }
                 } catch (e) {
