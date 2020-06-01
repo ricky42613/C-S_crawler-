@@ -264,7 +264,7 @@ var p = new Promise(function(resolve, reject) {
                             } else {
                                 let current_batch = rsp.record.splice(0, batch)
                                 batch_cnt += 1
-                                console.log(`處理第${batch_cnt}個batch`)
+                                console.log(`batch_cnt:${batch_cnt},start:${start},batch:${batch}`)
                                 let offset = start + (batch_cnt * batch)
                                 fs.writeFileSync(conf, `${offset}`, err => {
                                     if (err) {
@@ -332,7 +332,7 @@ var p = new Promise(function(resolve, reject) {
                                                             url_file_path = url_file_path + "-" + url_file_cnt
                                                             url_file_cnt++
                                                             fs.closeSync(f_url)
-                                                            f_url = open(triple_file_path)
+                                                            f_url = fs.openSync(triple_file_path, "a+")
                                                         }
                                                     }
                                                     //here
@@ -347,7 +347,7 @@ var p = new Promise(function(resolve, reject) {
                                                                 triple_file_path = triple_file_path + "-" + triple_file_cnt
                                                                 triple_file_cnt++
                                                                 fs.closeSync(f_triple)
-                                                                f_triple = open(triple_file_path)
+                                                                f_triple = fs.openSync(triple_file_path, "a+")
                                                             }
                                                         }
                                                         fs.write(f_triple, save_triple_str, function(err, fd) {

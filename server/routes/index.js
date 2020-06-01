@@ -9,11 +9,8 @@ var GetMain = require('../../gais_api/parseMain')
 var GAIS = require('../../gais_api/gais')
 var request = require('request')
 var cheerio = require('cheerio')
-var events = require('events')
-var em = new events.EventEmitter()
-    /* GET home page. */
-const max_req = 10
-    // const cache_lifetime = 60
+const max_req = 10;
+// const cache_lifetime = 60
 
 Array.prototype.unique = function() {
     let table = {}
@@ -25,6 +22,17 @@ Array.prototype.unique = function() {
         }
     }
     return final_list
+}
+
+Array.prototype.shuffle = function() {
+    var j, x, i;
+    for (i = this.length - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        x = this[i];
+        this[i] = this[j];
+        this[j] = x;
+    }
+    return this;
 }
 
 function get_source(text) {
@@ -569,6 +577,28 @@ router.post('/died', function(req, res, next) {
     } catch (e) {
         console.log(e)
         res.json({ status: false, msg: e })
+    }
+})
+
+router.post('/url_recycle', function(req, res, next) {
+    try {
+        let url_list = JSON.parse(req.body.data)
+        new_url_list = url_list.shuffle()
+        let diff_cnt = 0
+        for (let i = 0; i < url_list.length; i++) {
+            if (new_url_list[i] != url_list[i]) {
+                diff_cnt++
+            }
+        }
+        console.log(`diffenent rate:${diff_cnt}`)
+        save_rec(req.app.locals.parse_config.pool_db, new_url_list)
+        res.json({ status: true })
+    } catch (e) {
+        console.log(e)
+        res.json({
+            status: false,
+            msg: e
+        })
     }
 })
 

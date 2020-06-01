@@ -2,6 +2,7 @@ var cheerio = require('cheerio')
 var async = require('async')
 var request = require('request')
 var dns = require('dns')
+var fs = require('fs')
 var dnscache = require('dnscache')({
     "enable": true,
     "ttl": 300,
@@ -9,6 +10,9 @@ var dnscache = require('dnscache')({
 });
 // var memcached = require('memcached')
 // var cache = new memcached('localhost:8888')
+var rec_file = "./rec"
+var rec_file_cnt = 1
+var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
 var GetMain = require('../gais_api/parseMain')
 var GAIS = require('../gais_api/gais')
 var urL = require('url')
@@ -25,7 +29,7 @@ var config = {
     linkcnt_db: "src_ave_link",
     triple_db: "link_triple",
     fail_time_limit: 10,
-    pool_size: 1000,
+    pool_size: 100,
     batch_size: 30,
     timeout: 500,
     req_timeout: 3000,
@@ -505,6 +509,23 @@ function save_rec(db, data) {
     })
 }
 
+function url_back2server(url_list) {
+    return new Promise(function(resolve, reject) {
+        request.post({
+            url: `${server}/url_recycle`,
+            form: { data: JSON.stringify(url_list) }
+        }, function(e, r, b) {
+            if (e) {
+                console.log(e)
+                resolve()
+            } else {
+                console.log(r.body)
+                resolve()
+            }
+        })
+    })
+}
+
 var promise = new Promise(async function(resolve, reject) {
     register(user => {
         config.user = user
@@ -545,6 +566,7 @@ var promise = new Promise(async function(resolve, reject) {
                             // em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
 
                         let domainCode = domain == null ? "" : md5(domain)
+                        var rec_str = ""
                         if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
                             fetch_url(url, async(rsp_msg) => {
                                 if (rsp_msg.status) {
@@ -552,11 +574,17 @@ var promise = new Promise(async function(resolve, reject) {
                                     let $ = cheerio.load(body)
                                     let data = {}
                                     data.title = $('title').text().trim()
+                                    rec_str += `@title:${data.title}\n`
                                     data.url = url
+                                    rec_str += `@url:${data.url}\n`
                                     data.UrlCode = md5(url)
+                                    rec_str += `@UrlCode:${data.UrlCode}\n`
                                     data.fetch_time = new Date()
+                                    rec_str += `@fetch_time:${data.fetch_time}\n`
                                     data.key_words = $('meta[name="keywords"]').attr("content")
+                                    rec_str += `@key_words:${data.key_words}\n`
                                     data.description = $('meta[name="description"]').attr("content")
+                                    rec_str += `@description:${data.description}\n`
                                     $('script').remove()
                                     $('style').remove()
                                     $('noscript').remove()
@@ -568,9 +596,12 @@ var promise = new Promise(async function(resolve, reject) {
                                         }
                                     });
                                     data.domain = domain
+                                    rec_str += `@domain:${data.domain}\n`
                                     data.domainCode = domainCode
+                                    rec_str += `@domainCode:${data.domainCode}\n`
                                     let main_t = await GetMain.ParseHTML(body)
                                     data.mainText = main_t[1]
+                                    rec_str += `@mainText:${data.mainText}\n`
                                     if (main_t[0] != 'null') {
                                         $(main_t[0]).addClass("my_main_block")
                                         $(main_t[0]).find('*').each((idx, inneritem) => {
@@ -612,6 +643,19 @@ var promise = new Promise(async function(resolve, reject) {
                                     } else {
                                         data.host_ip = find_dns
                                     }
+                                    rec_str += `@host_ip:${data.host_ip}\n`
+                                    rec_str += `@body:${$('body').html()}\n`
+                                    if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
+                                        //file exists
+                                        let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
+                                        let fileSizeInBytes = stats["size"]
+                                        if (fileSizeInBytes > 200000000) {
+                                            rec_file_cnt++
+                                            fs.closeSync(rec_fd)
+                                            rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+                                        }
+                                    }
+                                    fs.writeSync(rec_fd, rec_str)
                                     let urls_in_page = parse_url_in_body(data.url, body)
                                     if (link_cnt_per_src[get_source(domain)] != undefined) {
                                         link_cnt_per_src[get_source(domain)].page_cnt += 1
@@ -670,19 +714,14 @@ var promise = new Promise(async function(resolve, reject) {
                 })
             },
             function(cb_mid2) {
-                save_url = save_url.unique()
                 console.log(`預計儲存${save_data.length}筆record`)
                 if (save_data.length) {
                     save_rec(config.record_db, save_data)
-                }
-                if (save_url.length) {
-                    save_rec(config.pool_db, save_url)
                 }
                 if (link_triples.length) {
                     save_rec(config.triple_db, link_triples)
                 }
                 save_data = []
-                save_url = []
                 link_triples = []
                 if (url_pool.length == 0) {
                     // for (let src in link_cnt_per_src) {
@@ -711,6 +750,11 @@ var promise = new Promise(async function(resolve, reject) {
                     //             }
                     //         // })
                     // }
+                    save_url = save_url.unique()
+                    if (save_url.length) {
+                        url_back2server(config.pool_db, save_url)
+                    }
+                    save_url = []
                     link_cnt_per_src = {}
                     pat_table = {}
                     console.log('pool已空，向server請求連結')
