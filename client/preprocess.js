@@ -166,44 +166,51 @@ function parse_url_in_body(url, body) {
 
 function fetch_url(url, cb) {
     try {
-        request({
-            url: url,
-            method: 'GET',
-            timeout: 50000,
-        }, function(e, r, b) {
+        if (url.slice(-3) == "pdf") {
             let data = {}
-            if (e) {
-                if (e.code == 'ERR_UNESCAPED_CHARACTERS') {
-                    fetch_url(encodeURI(url), rsp => {
-                        cb(rsp)
-                    })
-                } else {
-                    data.status = false
-                    data.msg = e.code
-                    cb(data)
-                }
-            } else {
-                try {
-                    if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
-                        if (r.headers["content-type"].indexOf("text/html") == -1) {
-                            data.status = false
-                            data.msg = 'not html file'
-                        } else {
-                            data.status = true
-                            data.msg = r.body
-                        }
-                        cb(data)
+            data.status = false
+            data.msg = 'not html file'
+            cb(data)
+        } else {
+            request({
+                url: url,
+                method: 'GET',
+                timeout: 3000,
+            }, function(e, r, b) {
+                let data = {}
+                if (e) {
+                    if (e.code == 'ERR_UNESCAPED_CHARACTERS') {
+                        fetch_url(encodeURI(url), rsp => {
+                            cb(rsp)
+                        })
                     } else {
                         data.status = false
-                        data.msg = r.statusCode.toString()
+                        data.msg = e.code
                         cb(data)
                     }
-                } catch (e) {
-                    data.status = false
-                    data.msg = 'err'
+                } else {
+                    try {
+                        if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
+                            if (r.headers["content-type"].indexOf("text/html") == -1) {
+                                data.status = false
+                                data.msg = 'not html file'
+                            } else {
+                                data.status = true
+                                data.msg = r.body
+                            }
+                            cb(data)
+                        } else {
+                            data.status = false
+                            data.msg = r.statusCode.toString()
+                            cb(data)
+                        }
+                    } catch (e) {
+                        data.status = false
+                        data.msg = 'err'
+                    }
                 }
-            }
-        })
+            })
+        }
     } catch (e) {
         let data = {}
         data.status = false
@@ -323,6 +330,7 @@ var p = new Promise(function(resolve, reject) {
                                                             save_triple_str += `@${key}:${item[key]}\n`
                                                         }
                                                     })
+                                                    console.time('test');
                                                     await save_rec(record_db, data)
                                                     if (fs.existsSync(url_file_path)) {
                                                         //file exists
@@ -351,6 +359,7 @@ var p = new Promise(function(resolve, reject) {
                                                             }
                                                         }
                                                         fs.write(f_triple, save_triple_str, function(err, fd) {
+                                                            console.timeEnd('test')
                                                             if (err) {
                                                                 console.log(err)
                                                             }
