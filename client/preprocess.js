@@ -283,6 +283,7 @@ var p = new Promise(function(resolve, reject) {
                                     // let batch_len = current_batch.length
                                     async.eachLimit(current_batch, 30, function(item, callback) {
                                         try {
+                                            let url = item.rec.url
                                             fetch_url(url, async rst => {
                                                 if (rst.status) {
                                                     let body = rst.msg
