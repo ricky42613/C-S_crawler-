@@ -331,7 +331,8 @@ var p = new Promise(function(resolve, reject) {
                                                         }
                                                     })
                                                     console.time('test');
-                                                    await save_rec(record_db, data)
+                                                    // await save_rec(record_db, data)
+                                                    save_rec(record_db, data)
                                                     if (fs.existsSync(url_file_path)) {
                                                         //file exists
                                                         let stats = fs.statSync(url_file_path)
