@@ -281,7 +281,7 @@ var p = new Promise(function(resolve, reject) {
                                 if (current_batch.length) {
                                     // let cnt = 0
                                     // let batch_len = current_batch.length
-                                    async.eachLimit(batch_cnt, 30, function(item, callback) {
+                                    async.eachLimit(current_batch, 30, function(item, callback) {
                                         try {
                                             fetch_url(url, async rst => {
                                                 if (rst.status) {
