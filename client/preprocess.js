@@ -279,10 +279,12 @@ var p = new Promise(function(resolve, reject) {
                                     }
                                 })
                                 if (current_batch.length) {
-                                    // let cnt = 0
-                                    // let batch_len = current_batch.length
-                                    async.eachLimit(current_batch, 30, function(item, callback) {
-                                        try {
+                                    let cnt = 0
+                                    let batch_len = current_batch.length
+                                    current_batch.forEach(item => {
+                                        if (shutdown_signal) {
+                                            callback('shutdown')
+                                        } else {
                                             let url = item.rec.url
                                             fetch_url(url, async rst => {
                                                 if (rst.status) {
@@ -366,125 +368,21 @@ var p = new Promise(function(resolve, reject) {
                                                             // }
                                                         })
                                                     })
-                                                    callback()
+                                                    cnt++
+                                                    if (cnt == batch_len) {
+                                                        inner_next(null)
+                                                    }
                                                 } else {
                                                     console.log(url)
                                                     console.log(rst.msg)
-                                                    callback()
+                                                    cnt++
+                                                    if (cnt == batch_len) {
+                                                        inner_next(null)
+                                                    }
                                                 }
                                             })
-                                        } catch (e) {
-                                            console.log(e)
-                                            callback()
                                         }
-                                    }, function(err) {
-                                        if (err) {
-                                            console.log(err);
-                                        }
-                                        inner_next(null)
                                     });
-                                    // current_batch.forEach(item => {
-                                    //     if (shutdown_signal) {
-                                    //         callback('shutdown')
-                                    //     } else {
-                                    //         let url = item.rec.url
-                                    // fetch_url(url, async rst => {
-                                    //     if (rst.status) {
-                                    //         let body = rst.msg
-                                    //         let $ = cheerio.load(body)
-                                    //         let data = {}
-                                    //         data.title = $('title').text().trim()
-                                    //         data.url = url
-                                    //         data.UrlCode = md5(url)
-                                    //         data.fetch_time = new Date()
-                                    //         data.key_words = $('meta[name="keywords"]').attr("content")
-                                    //         data.description = $('meta[name="description"]').attr("content")
-                                    //         $('script').remove()
-                                    //         $('style').remove()
-                                    //         $('noscript').remove()
-                                    //         $('*').each(function(idx, elem) {
-                                    //             for (var key in elem.attribs) {
-                                    //                 if (key != 'id' && key != 'class') {
-                                    //                     $(this).removeAttr(key)
-                                    //                 }
-                                    //             }
-                                    //         });
-                                    //         data.domain = urL.parse(encodeURI(url.trim())).hostname
-                                    //         data.domainCode = data.domain == null ? "" : md5(data.domain)
-                                    //         let main_t = await GetMain.ParseHTML(body)
-                                    //         data.mainText = main_t[1]
-                                    //         let find_dns = await get_ip(data.domain)
-                                    //         if (find_dns == "error") {
-                                    //             data.host_ip = "404"
-                                    //         } else {
-                                    //             data.host_ip = find_dns
-                                    //         }
-                                    //         let urls_in_page = parse_url_in_body(data.url, body)
-                                    //         let save_url_str = ""
-                                    //         urls_in_page.link_in_page.forEach(item => {
-                                    //             for (key in item) {
-                                    //                 save_url_str += `@${key}:${item[key]}\n`
-                                    //             }
-                                    //         })
-                                    //         let save_triple_str = ""
-                                    //         urls_in_page.link_triples.forEach(item => {
-                                    //             for (key in item) {
-                                    //                 save_triple_str += `@${key}:${item[key]}\n`
-                                    //             }
-                                    //         })
-                                    //         await save_rec(record_db, data)
-                                    //             // save_rec(record_db, data)
-                                    //         if (fs.existsSync(url_file_path)) {
-                                    //             //file exists
-                                    //             let stats = fs.statSync(url_file_path)
-                                    //             let fileSizeInBytes = stats["size"]
-                                    //             if (fileSizeInBytes > 200000000) {
-                                    //                 url_file_path = url_file_path + "-" + url_file_cnt
-                                    //                 url_file_cnt++
-                                    //                 fs.closeSync(f_url)
-                                    //                 f_url = fs.openSync(triple_file_path, "a+")
-                                    //             }
-                                    //         }
-                                    //         //here
-                                    //         fs.write(f_url, save_url_str, function(err, fd) {
-                                    //             if (err) {
-                                    //                 console.log(err)
-                                    //             }
-                                    //             if (fs.existsSync(triple_file_path)) {
-                                    //                 let stats = fs.statSync(triple_file_path)
-                                    //                 let fileSizeInBytes = stats["size"]
-                                    //                 if (fileSizeInBytes > 200000000) {
-                                    //                     triple_file_path = triple_file_path + "-" + triple_file_cnt
-                                    //                     triple_file_cnt++
-                                    //                     fs.closeSync(f_triple)
-                                    //                     f_triple = fs.openSync(triple_file_path, "a+")
-                                    //                 }
-                                    //             }
-                                    //             fs.write(f_triple, save_triple_str, function(err, fd) {
-                                    //                 if (err) {
-                                    //                     console.log(err)
-                                    //                 }
-                                    //                 // cnt++
-                                    //                 // if (cnt == batch_len) {
-                                    //                 //     inner_next(null)
-                                    //                 // }
-                                    //             })
-                                    //         })
-                                    //         cnt++
-                                    //         if (cnt == batch_len) {
-                                    //             inner_next(null)
-                                    //         }
-                                    //     } else {
-                                    //         console.log(url)
-                                    //         console.log(rst.msg)
-                                    //         cnt++
-                                    //         if (cnt == batch_len) {
-                                    //             inner_next(null)
-                                    //         }
-                                    //     }
-                                    // })
-                                    //     }
-                                    // });
                                 } else {
                                     start += 4096
                                     inner_next('done')
