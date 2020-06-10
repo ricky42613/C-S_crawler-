@@ -326,12 +326,12 @@ var p = new Promise(function(resolve, reject) {
                                                     })
                                                     let save_triple_str = ""
                                                     urls_in_page.link_triples.forEach(item => {
-                                                            for (key in item) {
-                                                                save_triple_str += `@${key}:${item[key]}\n`
-                                                            }
-                                                        })
-                                                        // await save_rec(record_db, data)
-                                                    save_rec(record_db, data)
+                                                        for (key in item) {
+                                                            save_triple_str += `@${key}:${item[key]}\n`
+                                                        }
+                                                    })
+                                                    await save_rec(record_db, data)
+                                                        // save_rec(record_db, data)
                                                     if (fs.existsSync(url_file_path)) {
                                                         //file exists
                                                         let stats = fs.statSync(url_file_path)
@@ -362,12 +362,16 @@ var p = new Promise(function(resolve, reject) {
                                                             if (err) {
                                                                 console.log(err)
                                                             }
-                                                            cnt++
-                                                            if (cnt == batch_len) {
-                                                                inner_next(null)
-                                                            }
+                                                            // cnt++
+                                                            // if (cnt == batch_len) {
+                                                            //     inner_next(null)
+                                                            // }
                                                         })
                                                     })
+                                                    cnt++
+                                                    if (cnt == batch_len) {
+                                                        inner_next(null)
+                                                    }
                                                 } else {
                                                     console.log(url)
                                                     console.log(rst.msg)
