@@ -326,12 +326,11 @@ var p = new Promise(function(resolve, reject) {
                                                     })
                                                     let save_triple_str = ""
                                                     urls_in_page.link_triples.forEach(item => {
-                                                        for (key in item) {
-                                                            save_triple_str += `@${key}:${item[key]}\n`
-                                                        }
-                                                    })
-                                                    console.time('test');
-                                                    // await save_rec(record_db, data)
+                                                            for (key in item) {
+                                                                save_triple_str += `@${key}:${item[key]}\n`
+                                                            }
+                                                        })
+                                                        // await save_rec(record_db, data)
                                                     save_rec(record_db, data)
                                                     if (fs.existsSync(url_file_path)) {
                                                         //file exists
@@ -360,7 +359,6 @@ var p = new Promise(function(resolve, reject) {
                                                             }
                                                         }
                                                         fs.write(f_triple, save_triple_str, function(err, fd) {
-                                                            console.timeEnd('test')
                                                             if (err) {
                                                                 console.log(err)
                                                             }
