@@ -7,6 +7,7 @@ var urL = require('url')
 var md5 = require('md5')
 var fs = require('fs')
 var dns = require('dns')
+var cluster = require('cluster')
 
 var sourceDB = 'http://nubot70.taiwin.tw:5802'
 var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
@@ -221,7 +222,10 @@ function fetch_url(url, cb) {
 
 function save_rec(db, data) {
     return new Promise(async function(resolve, reject) {
+        console.log("start save")
+        console.time("save")
         let r = await targetDB.insert(db, data)
+        console.timeEnd("save")
         if (!r.status) {
             setTimeout(async function() {
                 await save_rec(db, data)
@@ -232,179 +236,214 @@ function save_rec(db, data) {
         }
     })
 }
-var p = new Promise(function(resolve, reject) {
-    console.log("start")
-    if (fs.existsSync(conf)) {
-        fs.readFile(conf, "utf-8", function(err, data) {
-            if (err) {
-                console.log(err)
-            } else {
-                start = parseInt(data)
-            }
-            resolve()
-        })
-    } else {
-        console.log(start)
-        resolve()
-    }
-}).then(() => {
-    console.log(`從${start}處開始爬取`)
-    async.forever(function(next) {
-        if (shutdown_signal) {
-            next('done')
-        } else if (start < END_RID) {
-            var p = new Promise(function(resolve, reject) {
-                let rid_list = []
-                batch_cnt = 0
-                for (let i = 0; i < 4096; i++) {
-                    if (start + i < END_RID) {
-                        rid_list.push(start + i)
-                    }
-                }
 
-                query_rid(rid_list, rsp => {
-                    if (rsp.status) {
-                        console.log(`開始從rid:${rid_list[0]}起處理4096筆資料`)
-                        async.forever(function(inner_next) {
-                            if (shutdown_signal) {
-                                inner_next('done')
-                            } else {
+if (cluster.isMaster) {
+    var file_worker = cluster.fork()
+    var p = new Promise(function(resolve, reject) {
+        console.log("start")
+        if (fs.existsSync(conf)) {
+            fs.readFile(conf, "utf-8", function(err, data) {
+                if (err) {
+                    console.log(err)
+                } else {
+                    start = parseInt(data)
+                }
+                resolve()
+            })
+        } else {
+            console.log(start)
+            resolve()
+        }
+    }).then(() => {
+        async.forever(function(next) {
+            console.log(`從${start}處開始爬取`)
+            if (start < END_RID) {
+                var p = new Promise(function(resolve, reject) {
+                    let rid_list = []
+                    batch_cnt = 0
+                    for (let i = 0; i < 4096; i++) {
+                        if (start + i < END_RID) {
+                            rid_list.push(start + i)
+                        }
+                    }
+                    query_rid(rid_list, rsp => {
+                        if (rsp.status) {
+                            console.log(`開始從rid:${rid_list[0]}起處理${rsp.record.length}筆資料`)
+                            async.forever(function(inner_next) {
+                                let is_callback = 0
                                 let current_batch = rsp.record.splice(0, batch)
                                 batch_cnt += 1
                                 console.log(`batch_cnt:${batch_cnt},start:${start},batch:${batch}`)
                                 let offset = start + (batch_cnt * batch)
-                                fs.writeFileSync(conf, `${offset}`, err => {
-                                    if (err) {
-                                        console.log(err)
-                                    }
-                                })
+                                file_worker.send({ type: 'conf', offset: offset })
                                 if (current_batch.length) {
                                     let cnt = 0
                                     let batch_len = current_batch.length
+                                    let save_data = []
+                                    setTimeout(async function() {
+                                        if (!is_callback) {
+                                            console.log("timeout")
+                                            is_callback = 1
+                                            await save_rec(record_db, save_data);
+                                            inner_next(null)
+                                        }
+                                    }, 120000)
                                     current_batch.forEach(item => {
-                                        if (shutdown_signal) {
-                                            callback('shutdown')
-                                        } else {
-                                            let url = item.rec.url
-                                            fetch_url(url, async rst => {
-                                                if (rst.status) {
-                                                    let body = rst.msg
-                                                    let $ = cheerio.load(body)
-                                                    let data = {}
-                                                    data.title = $('title').text().trim()
-                                                    data.url = url
-                                                    data.UrlCode = md5(url)
-                                                    data.fetch_time = new Date()
-                                                    data.key_words = $('meta[name="keywords"]').attr("content")
-                                                    data.description = $('meta[name="description"]').attr("content")
-                                                    $('script').remove()
-                                                    $('style').remove()
-                                                    $('noscript').remove()
-                                                    $('*').each(function(idx, elem) {
-                                                        for (var key in elem.attribs) {
-                                                            if (key != 'id' && key != 'class') {
-                                                                $(this).removeAttr(key)
-                                                            }
-                                                        }
-                                                    });
-                                                    data.domain = urL.parse(encodeURI(url.trim())).hostname
-                                                    data.domainCode = data.domain == null ? "" : md5(data.domain)
-                                                    let main_t = await GetMain.ParseHTML(body)
-                                                    data.mainText = main_t[1]
-                                                    let find_dns = await get_ip(data.domain)
-                                                    if (find_dns == "error") {
-                                                        data.host_ip = "404"
-                                                    } else {
-                                                        data.host_ip = find_dns
-                                                    }
-                                                    let urls_in_page = parse_url_in_body(data.url, body)
-                                                    let save_url_str = ""
-                                                    urls_in_page.link_in_page.forEach(item => {
-                                                        for (key in item) {
-                                                            save_url_str += `@${key}:${item[key]}\n`
-                                                        }
-                                                    })
-                                                    let save_triple_str = ""
-                                                    urls_in_page.link_triples.forEach(item => {
-                                                        for (key in item) {
-                                                            save_triple_str += `@${key}:${item[key]}\n`
-                                                        }
-                                                    })
-                                                    await save_rec(record_db, data)
-                                                        // save_rec(record_db, data)
-                                                    if (fs.existsSync(url_file_path)) {
-                                                        //file exists
-                                                        let stats = fs.statSync(url_file_path)
-                                                        let fileSizeInBytes = stats["size"]
-                                                        if (fileSizeInBytes > 200000000) {
-                                                            url_file_path = url_file_path + "-" + url_file_cnt
-                                                            url_file_cnt++
-                                                            fs.closeSync(f_url)
-                                                            f_url = fs.openSync(triple_file_path, "a+")
-                                                        }
-                                                    }
-                                                    //here
-                                                    fs.write(f_url, save_url_str, function(err, fd) {
-                                                        if (err) {
-                                                            console.log(err)
-                                                        }
-                                                        if (fs.existsSync(triple_file_path)) {
-                                                            let stats = fs.statSync(triple_file_path)
-                                                            let fileSizeInBytes = stats["size"]
-                                                            if (fileSizeInBytes > 200000000) {
-                                                                triple_file_path = triple_file_path + "-" + triple_file_cnt
-                                                                triple_file_cnt++
-                                                                fs.closeSync(f_triple)
-                                                                f_triple = fs.openSync(triple_file_path, "a+")
-                                                            }
-                                                        }
-                                                        fs.write(f_triple, save_triple_str, function(err, fd) {
-                                                            if (err) {
-                                                                console.log(err)
-                                                            }
-                                                            // cnt++
-                                                            // if (cnt == batch_len) {
-                                                            //     inner_next(null)
-                                                            // }
-                                                        })
-                                                    })
-                                                    cnt++
-                                                    if (cnt == batch_len) {
-                                                        inner_next(null)
-                                                    }
+                                        let url = item.rec.url
+                                        fetch_url(url, async rst => {
+                                            if (rst.status) {
+                                                let body = rst.msg
+                                                let $ = cheerio.load(body)
+                                                let data = {}
+                                                data.title = $('title').text().trim()
+                                                data.url = url
+                                                data.UrlCode = md5(url)
+                                                data.fetch_time = new Date()
+                                                data.key_words = $('meta[name="keywords"]').attr("content")
+                                                data.description = $('meta[name="description"]').attr("content");
+                                                // $('script').remove()
+                                                // $('style').remove()
+                                                // $('noscript').remove()
+                                                // $('*').each(function(idx, elem) {
+                                                //     for (var key in elem.attribs) {
+                                                //         if (key != 'id' && key != 'class') {
+                                                //             $(this).removeAttr(key)
+                                                //         }
+                                                //     }
+                                                // });
+                                                data.domain = urL.parse(encodeURI(url.trim())).hostname
+                                                data.domainCode = data.domain == null ? "" : md5(data.domain)
+                                                let main_t = await GetMain.ParseHTML(body)
+                                                data.mainText = main_t[1]
+                                                let find_dns = await get_ip(data.domain)
+                                                if (find_dns == "error") {
+                                                    data.host_ip = "404"
                                                 } else {
-                                                    console.log(url)
-                                                    console.log(rst.msg)
-                                                    cnt++
-                                                    if (cnt == batch_len) {
+                                                    data.host_ip = find_dns
+                                                }
+                                                // let urls_in_page = parse_url_in_body(data.url, body)
+                                                // let save_url_str = ""
+                                                // urls_in_page.link_in_page.forEach(item => {
+                                                //     for (key in item) {
+                                                //         save_url_str += `@${key}:${item[key]}\n`
+                                                //     }
+                                                // })
+                                                // let save_triple_str = ""
+                                                // urls_in_page.link_triples.forEach(item => {
+                                                //     for (key in item) {
+                                                //         save_triple_str += `@${key}:${item[key]}\n`
+                                                //     }
+                                                // })
+                                                file_worker.send({ type: "url_in_body", url: data.url, body: body })
+                                                    // await save_rec(record_db, data);
+                                                save_data.push(data)
+                                                    // save_rec(record_db, data)
+                                                cnt++
+                                                console.log(cnt)
+                                                console.log(batch_len)
+                                                if (cnt == batch_len) {
+                                                    if (!is_callback) {
+                                                        is_callback = 1
+                                                        await save_rec(record_db, save_data);
                                                         inner_next(null)
                                                     }
                                                 }
-                                            })
-                                        }
+                                            } else {
+                                                console.log(url)
+                                                console.log(rst.msg)
+                                                cnt++
+                                                console.log(cnt)
+                                                console.log(batch_len)
+                                                if (cnt == batch_len) {
+                                                    if (!is_callback) {
+                                                        is_callback = 1
+                                                        await save_rec(record_db, save_data);
+                                                        inner_next(null)
+                                                    }
+                                                }
+                                            }
+                                        })
                                     });
                                 } else {
                                     start += 4096
+                                    is_callback = 1
                                     inner_next('done')
                                 }
-                            }
-                        }, function(e) {
-                            if (e) {
-                                console.log(e)
-                            }
+
+                            }, function(e) {
+                                if (e) {
+                                    console.log(e)
+                                }
+                                next(null)
+                            })
+                        } else {
+                            console.log(rid_list)
+                            console.log(rsp.msg)
                             next(null)
-                        })
-                    } else {
-                        console.log(rid_list)
-                        console.log(rsp.msg)
-                        next(null)
+                        }
+                    })
+                })
+            } else {
+                next('done')
+            }
+        }, function(e) {
+            console.log(e)
+        })
+    })
+} else {
+    process.on('message', function(msg) {
+        if (msg.type == 'url_in_body') {
+            let urls_in_page = parse_url_in_body(msg.url, msg.body)
+            let save_url_str = ""
+            urls_in_page.link_in_page.forEach(item => {
+                for (key in item) {
+                    save_url_str += `@${key}:${item[key]}\n`
+                }
+            })
+            let save_triple_str = ""
+            urls_in_page.link_triples.forEach(item => {
+                for (key in item) {
+                    save_triple_str += `@${key}:${item[key]}\n`
+                }
+            })
+            if (fs.existsSync(url_file_path + "-" + url_file_cnt)) {
+                //file exists
+                let stats = fs.statSync(url_file_path + "-" + url_file_cnt)
+                let fileSizeInBytes = stats["size"]
+                if (fileSizeInBytes > 1000000000) {
+                    // url_file_path = url_file_path + "-" + url_file_cnt
+                    url_file_cnt++
+                    fs.closeSync(f_url)
+                    f_url = fs.openSync(url_file_path + "-" + url_file_cnt, "a+")
+                }
+            }
+            //here
+            fs.write(f_url, save_url_str, function(err, fd) {
+                if (err) {
+                    console.log(err)
+                }
+                if (fs.existsSync(triple_file_path + "-" + triple_file_cnt)) {
+                    let stats = fs.statSync(triple_file_path + "-" + triple_file_cnt)
+                    let fileSizeInBytes = stats["size"]
+                    if (fileSizeInBytes > 1000000000) {
+                        // triple_file_path = triple_file_path + "-" + triple_file_cnt
+                        triple_file_cnt++
+                        fs.closeSync(f_triple)
+                        f_triple = fs.openSync(triple_file_path + "-" + triple_file_cnt, "a+")
                     }
+                }
+                fs.write(f_triple, save_triple_str, function(err, fd) {
+                    if (err) {
+                        console.log(err)
+                    }
+                    // cnt++
+                    // if (cnt == batch_len) {
+                    //     inner_next(null)
+                    // }
                 })
             })
-        } else {
-            next('done')
+        } else if (msg.type == "conf") {
+            fs.writeFileSync(conf, `${msg.offset}`)
         }
-    }, function(e) {
-        console.log(e)
     })
-})
+}
