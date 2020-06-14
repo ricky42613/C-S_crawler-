@@ -12,7 +12,7 @@ var cluster = require('cluster')
 var sourceDB = 'http://nubot70.taiwin.tw:5802'
 var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
     // var record_db = "original_rec"
-var record_db = "original_rec"
+var record_db = "original_rec2"
 var start = parseInt(process.argv[2])
 var url_file_path = `./url_${start}.txt`
 var f_url = fs.openSync(url_file_path, "a+")
@@ -24,9 +24,7 @@ var triple_file_cnt = 1
 var total_size = parseInt(process.argv[3])
 var END_RID = start + total_size
 var black_key_list = ['undefined', '../', 'javascript:', 'mailto:']
-var shutdown_signal = 0
-var batch = 10
-var batch_cnt = 0
+var batch = 20
 
 Array.prototype.unique = function() {
     let table = {}
@@ -260,7 +258,6 @@ if (cluster.isMaster) {
             if (start < END_RID) {
                 var p = new Promise(function(resolve, reject) {
                     let rid_list = []
-                    batch_cnt = 0
                     for (let i = 0; i < 4096; i++) {
                         if (start + i < END_RID) {
                             rid_list.push(start + i)
@@ -270,7 +267,7 @@ if (cluster.isMaster) {
                         if (rsp.status) {
                             console.log(`開始從rid:${rid_list[0]}起處理${rsp.record.length}筆資料`)
                             let cnt = 0;
-                            async.eachLimit(rsp.record, 10, function(item, callback) {
+                            async.eachLimit(rsp.record, batch, function(item, callback) {
                                 let url = item.rec.url
                                 let save_flag = 0
                                 cnt++

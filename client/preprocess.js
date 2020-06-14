@@ -11,8 +11,7 @@ var cluster = require('cluster')
 
 var sourceDB = 'http://nubot70.taiwin.tw:5802'
 var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
-    // var record_db = "original_rec"
-var record_db = "test_db"
+var record_db = "original_rec2"
 var start = parseInt(process.argv[2])
 var url_file_path = `./url_${start}.txt`
 var f_url = fs.openSync(url_file_path, "a+")
