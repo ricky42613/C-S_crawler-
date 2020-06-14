@@ -272,6 +272,9 @@ if (cluster.isMaster) {
                                 let save_flag = 0
                                 cnt++
                                 console.log(cnt)
+                                if (cnt % 100 == 0) {
+                                    file_worker.send({ type: 'conf', offset: `${start+cnt}` })
+                                }
                                 setTimeout(function() {
                                     if (!save_flag) {
                                         save_flag = 1
