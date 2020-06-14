@@ -12,7 +12,7 @@ var cluster = require('cluster')
 var sourceDB = 'http://nubot70.taiwin.tw:5802'
 var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
     // var record_db = "original_rec"
-var record_db = "test_db"
+var record_db = "original_rec"
 var start = parseInt(process.argv[2])
 var url_file_path = `./url_${start}.txt`
 var f_url = fs.openSync(url_file_path, "a+")
@@ -269,114 +269,59 @@ if (cluster.isMaster) {
                     query_rid(rid_list, rsp => {
                         if (rsp.status) {
                             console.log(`開始從rid:${rid_list[0]}起處理${rsp.record.length}筆資料`)
-                            async.forever(function(inner_next) {
-                                let is_callback = 0
-                                let current_batch = rsp.record.splice(0, batch)
-                                batch_cnt += 1
-                                console.log(`batch_cnt:${batch_cnt},start:${start},batch:${batch}`)
-                                let offset = start + (batch_cnt * batch)
-                                file_worker.send({ type: 'conf', offset: offset })
-                                if (current_batch.length) {
-                                    let cnt = 0
-                                    let batch_len = current_batch.length
-                                    let save_data = []
-                                    setTimeout(async function() {
-                                        if (!is_callback) {
-                                            console.log("timeout")
-                                            is_callback = 1
-                                            await save_rec(record_db, save_data);
-                                            inner_next(null)
+                            let cnt = 0;
+                            async.eachLimit(rsp.record, 10, function(item, callback) {
+                                let url = item.rec.url
+                                let save_flag = 0
+                                cnt++
+                                console.log(cnt)
+                                setTimeout(function() {
+                                    if (!save_flag) {
+                                        save_flag = 1
+                                        callback()
+                                    }
+                                }, 6000);
+                                fetch_url(url, async rst => {
+                                    if (rst.status) {
+                                        let body = rst.msg
+                                        let $ = cheerio.load(body)
+                                        let data = {}
+                                        data.title = $('title').text().trim()
+                                        data.url = url
+                                        data.UrlCode = md5(url)
+                                        data.fetch_time = new Date()
+                                        data.key_words = $('meta[name="keywords"]').attr("content")
+                                        data.description = $('meta[name="description"]').attr("content");
+                                        data.domain = urL.parse(encodeURI(url.trim())).hostname
+                                        data.domainCode = data.domain == null ? "" : md5(data.domain)
+                                        let main_t = await GetMain.ParseHTML(body)
+                                        data.mainText = main_t[1]
+                                        let find_dns = await get_ip(data.domain)
+                                        if (find_dns == "error") {
+                                            data.host_ip = "404"
+                                        } else {
+                                            data.host_ip = find_dns
                                         }
-                                    }, 30000)
-                                    current_batch.forEach((item, i) => {
-                                        try {
-                                            let url = item.rec.url
-                                            fetch_url(url, async rst => {
-                                                console.log(`fetch ${i}:${url}`)
-                                                if (rst.status) {
-                                                    let body = rst.msg
-                                                    let $ = cheerio.load(body)
-                                                    let data = {}
-                                                    data.title = $('title').text().trim()
-                                                    data.url = url
-                                                    data.UrlCode = md5(url)
-                                                    data.fetch_time = new Date()
-                                                    data.key_words = $('meta[name="keywords"]').attr("content")
-                                                    data.description = $('meta[name="description"]').attr("content");
-                                                    // $('script').remove()
-                                                    // $('style').remove()
-                                                    // $('noscript').remove()
-                                                    // $('*').each(function(idx, elem) {
-                                                    //     for (var key in elem.attribs) {
-                                                    //         if (key != 'id' && key != 'class') {
-                                                    //             $(this).removeAttr(key)
-                                                    //         }
-                                                    //     }
-                                                    // });
-                                                    data.domain = urL.parse(encodeURI(url.trim())).hostname
-                                                    data.domainCode = data.domain == null ? "" : md5(data.domain)
-                                                    let main_t = await GetMain.ParseHTML(body)
-                                                    data.mainText = main_t[1]
-                                                    let find_dns = await get_ip(data.domain)
-                                                    if (find_dns == "error") {
-                                                        data.host_ip = "404"
-                                                    } else {
-                                                        data.host_ip = find_dns
-                                                    }
-                                                    file_worker.send({ type: "url_in_body", url: data.url, body: body })
-                                                        // await save_rec(record_db, data);
-                                                    save_data.push(data)
-                                                        // save_rec(record_db, data)
-                                                    cnt++
-                                                    console.log(cnt)
-                                                    console.log(`${i}:${url} is finish`)
-                                                    if (cnt == batch_len) {
-                                                        if (!is_callback) {
-                                                            is_callback = 1
-                                                            await save_rec(record_db, save_data);
-                                                            inner_next(null)
-                                                        }
-                                                    }
-                                                } else {
-                                                    console.log(url)
-                                                    console.log(rst.msg)
-                                                    cnt++
-                                                    console.log(cnt)
-                                                    console.log(batch_len)
-                                                    if (cnt == batch_len) {
-                                                        if (!is_callback) {
-                                                            is_callback = 1
-                                                            await save_rec(record_db, save_data);
-                                                            inner_next(null)
-                                                        }
-                                                    }
-                                                }
-                                            })
-                                        } catch (e) {
-                                            (async function() {
-                                                console.log(e)
-                                                console.log(item)
-                                                cnt++
-                                                if (cnt == batch_len) {
-                                                    if (!is_callback) {
-                                                        is_callback = 1
-                                                        await save_rec(record_db, save_data);
-                                                        inner_next(null)
-                                                    }
-                                                }
-                                            }())
+                                        file_worker.send({ type: "url_in_body", url: data.url, body: body })
+                                        if (!save_flag) {
+                                            save_flag = 1
+                                            await save_rec(record_db, data);
+                                            callback()
                                         }
-                                    });
-                                } else {
-                                    start += 4096
-                                    is_callback = 1
-                                    inner_next('done')
+                                    } else {
+                                        console.log(url)
+                                        console.log(rst.msg)
+                                        if (!save_flag) {
+                                            save_flag = 1
+                                            callback()
+                                        }
+                                    }
+                                })
+                            }, function(err) {
+                                if (err) {
+                                    console.log(err)
                                 }
-
-                            }, function(e) {
-                                if (e) {
-                                    console.log(e)
-                                }
+                                start += 4096
                                 next(null)
                             })
                         } else {
