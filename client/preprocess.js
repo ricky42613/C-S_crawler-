@@ -286,7 +286,7 @@ if (cluster.isMaster) {
                                             await save_rec(record_db, save_data);
                                             inner_next(null)
                                         }
-                                    }, 30000)
+                                    }, 8000)
                                     current_batch.forEach((item, i) => {
                                         try {
                                             let url = item.rec.url
@@ -327,8 +327,6 @@ if (cluster.isMaster) {
                                                     save_data.push(data)
                                                         // save_rec(record_db, data)
                                                     cnt++
-                                                    console.log(cnt)
-                                                    console.log(`${i}:${url} is finish`)
                                                     if (cnt == batch_len) {
                                                         if (!is_callback) {
                                                             is_callback = 1
@@ -340,8 +338,6 @@ if (cluster.isMaster) {
                                                     console.log(url)
                                                     console.log(rst.msg)
                                                     cnt++
-                                                    console.log(cnt)
-                                                    console.log(batch_len)
                                                     if (cnt == batch_len) {
                                                         if (!is_callback) {
                                                             is_callback = 1
@@ -353,8 +349,6 @@ if (cluster.isMaster) {
                                             })
                                         } catch (e) {
                                             (async function() {
-                                                console.log(e)
-                                                console.log(item)
                                                 cnt++
                                                 if (cnt == batch_len) {
                                                     if (!is_callback) {
