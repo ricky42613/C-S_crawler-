@@ -8,11 +8,12 @@ var dnscache = require('dnscache')({
     "ttl": 300,
     "cachesize": 1000
 });
+var cluster = require('cluster');
 // var memcached = require('memcached')
 // var cache = new memcached('localhost:8888')
 var rec_file = "./rec"
 var rec_file_cnt = 1
-var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+    // var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
 var GetMain = require('../gais_api/parseMain')
 var GAIS = require('../gais_api/gais')
 var urL = require('url')
@@ -39,128 +40,6 @@ var DB = new GAIS(config.machine)
 var url_pool = []
 var detect_table = []
 var black_key_list = ['undefined', '../', 'javascript:', 'mailto:']
-var src_pat_ctrl = 0
-var linkcnt_ctrl = 0
-
-function shutDown() {
-    console.log('process準備終止')
-    let t = 0
-    async.forever(function(next) {
-        let start = t * 200
-        let end = (t + 1) * 200
-        let current = url_pool.slice(start, end)
-        if (current.length == 0) {
-            next('done')
-        } else {
-            request({
-                url: `${config.server}/died`,
-                method: 'POST',
-                form: {
-                    url_pool: JSON.stringify(current),
-                    user: config.user
-                }
-            }, function(e, r, b) {
-                if (e) {
-                    console.log('發生錯誤')
-                    console.log(e)
-                } else {
-                    rsp = JSON.parse(r.body)
-                    if (rsp.status) {
-                        console.log('返還完成')
-                    } else {
-                        console.log('發生錯誤')
-                        console.log(rsp.msg)
-                    }
-                }
-                t++
-                next(null)
-            })
-        }
-    }, function(err) {
-        process.exit()
-    })
-}
-
-process.on('SIGTERM', shutDown);
-process.on('SIGINT', shutDown);
-
-em.on('ban', function(data) { //爬蟲阻擋偵測
-    console.log(`${data}被ban了\n最後fetch到的內容為${detect_table[md5(data)].content}`)
-})
-
-/*em.on('check_src_pat', function(data) { //取得source的pattern db
-    //data:pat_${src}
-    let timer = setInterval(function() {
-        if (!src_pat_ctrl) {
-            src_pat_ctrl = 1
-            cache.get(data, function(err, rsp) {
-                if (err) {
-                    console.log(err)
-                    src_pat_ctrl = 0
-                    clearInterval(timer)
-                } else {
-                    if (typeof(rsp) == 'undefined') {
-                        get_pat_record(data, (success, msg) => {
-                            if (success) {
-                                cache.set(data, JSON.stringify(msg), 3 * 60 * 60, err => {
-                                    if (err) {
-                                        console.log(err)
-                                    }
-                                    src_pat_ctrl = 0
-                                    clearInterval(timer)
-                                })
-                            } else {
-                                console.log(msg)
-                                src_pat_ctrl = 0
-                                clearInterval(timer)
-                            }
-                        })
-                    } else {
-                        src_pat_ctrl = 0
-                        clearInterval(timer)
-                    }
-                }
-            })
-        }
-    }, 500)
-})
-
-em.on('get_src_ave_linkcnt', function(data) { //取得source的平均連結數量資訊
-    //data:linkcnt_${src}
-    let timer = setInterval(function() {
-        if (!linkcnt_ctrl) {
-            linkcnt_ctrl = 1
-            cache.get(data, function(err, rsp) {
-                if (err) {
-                    console.log(err)
-                    linkcnt_ctrl = 0
-                    clearInterval(timer)
-                } else {
-                    if (typeof(rsp) == 'undefined') {
-                        get_linkcnt_record(data, (success, msg) => {
-                            if (success) {
-                                cache.set(data, msg, 3 * 60 * 60, err => {
-                                    if (err) {
-                                        console.log(err)
-                                    }
-                                    linkcnt_ctrl = 0
-                                    clearInterval(timer)
-                                })
-                            } else {
-                                console.log(msg)
-                                linkcnt_ctrl = 0
-                                clearInterval(timer)
-                            }
-                        })
-                    } else {
-                        linkcnt_ctrl = 0
-                        clearInterval(timer)
-                    }
-                }
-            })
-        }
-    }, 500)
-})*/
 
 Array.prototype.unique = function() {
     let table = {}
@@ -174,95 +53,6 @@ Array.prototype.unique = function() {
     return final_list
 }
 
-function get_linkcnt_record(src, cb) {
-    request({
-        url: `${config.server}/linkcnt_db?src=${src}`,
-        method: 'GET'
-    }, function(e, r, b) {
-        if (e) {
-            console.log(e)
-            cb(false, e)
-        } else {
-            let rsp = JSON.parse(r.body)
-            if (rsp.status) {
-                cb(true, rsp.data)
-            } else {
-                cb(false, rsp.msg)
-            }
-        }
-    })
-}
-
-function update_linkcnt_record(src, data, cb) {
-    let body = {}
-    body.src = src
-    body.page_cnt = data.page_cnt
-    body.a_cnt = data.a_cnt
-    request({
-        method: 'POST',
-        url: `${config.server}/edit_linkcnt_db`,
-        form: body
-    }, function(e, r, b) {
-        if (e) {
-            console.log(e)
-            cb(false, e)
-        } else {
-            let rsp = JSON.parse(r.body)
-            if (rsp.status) {
-                cb(true, rsp.data)
-            } else {
-                cb(false, rsp.msg)
-            }
-        }
-    })
-}
-
-function get_pat_record(src, cb) {
-    request({
-        url: `${config.server}/linkcnt_db?src=${src}`,
-        method: 'GET'
-    }, function(e, r, b) {
-        if (e) {
-            console.log(e)
-            cb(false, e)
-        } else {
-            let rsp = JSON.parse(r.body)
-            if (rsp.status) {
-                cb(true, rsp.data)
-            } else {
-                cb(false, rsp.msg)
-            }
-        }
-    })
-}
-
-function update_pat_record(src, data, cb) {
-    let body = {}
-    body.src = src
-    body.pat_table = JSON.stringify(data)
-    request({
-        method: 'POST',
-        url: `${config.server}/edit_pat_db`,
-        form: body
-    }, function(e, r, b) {
-        if (e) {
-            console.log(e)
-            cb(false, e)
-        } else {
-            try {
-                let rsp = JSON.parse(r.body)
-                if (rsp.status) {
-                    cb(true, rsp.data)
-                } else {
-                    cb(false, rsp.msg)
-                }
-            } catch (e) {
-                console.log(e)
-                cb(false, e)
-            }
-        }
-    })
-}
 
 function is_time(str) {
     let num_arr = str.split(/[^0-9]/)
@@ -526,261 +316,229 @@ function url_back2server(url_list) {
     })
 }
 
-var promise = new Promise(async function(resolve, reject) {
-    register(user => {
-        config.user = user
-        console.log(`user name is ${user}`)
-        let timer = setInterval(() => {
-            get_url_from_server(r => {
-                if (r.status) {
-                    if (r.pool.length) {
-                        url_pool = r.pool
-                        console.log(`取得${r.pool.length}筆url`)
-                        resolve()
-                        clearInterval(timer)
-                    } else {
-                        console.log("取回數量0,重新索取")
-                    }
-                } else {
-                    console.log(r.msg)
-                }
-            })
-        }, config.wait_pool_fill);
+if (cluster.isMaster) {
+    em.on('ban', function(data) { //爬蟲阻擋偵測
+        console.log(`${data}被ban了\n最後fetch到的內容為${detect_table[md5(data)].content}`)
     })
-}).then(() => {
-    let save_data = []
-    let save_url = []
-    let link_triples = []
-    let link_cnt_per_src = {}
-    let pat_table = {}
-    async.forever(function(cb) {
-        async.waterfall([
-            function(cb_mid) {
-                let url_list = url_pool.splice(0, config.batch_size)
-                console.log(`開始處理${url_list.length}個連結`)
-                async.eachLimit(url_list, config.batch_size, function(item, each_cb) {
-                    (async function() {
-                        let url = item.url
-                        let domain = urL.parse(encodeURI(url.trim())).hostname
-                            // em.emit('check_src_pat', `pat_${get_source(domain)}`)
-                            // em.emit('get_src_ave_linkcnt', `linkcnt_${get_source(domain)}`)
-
-                        let domainCode = domain == null ? "" : md5(domain)
-                        var rec_str = ""
-                        if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
-                            fetch_url(url, async(rsp_msg) => {
-                                if (rsp_msg.status) {
-                                    let body = rsp_msg.msg
-                                    let $ = cheerio.load(body)
-                                    let data = {}
-                                    data.title = $('title').text().trim()
-                                    rec_str += `@title:${data.title}\n`
-                                    data.url = url
-                                    rec_str += `@url:${data.url}\n`
-                                    data.UrlCode = md5(url)
-                                    rec_str += `@UrlCode:${data.UrlCode}\n`
-                                    data.fetch_time = new Date()
-                                    rec_str += `@fetch_time:${data.fetch_time}\n`
-                                    data.key_words = $('meta[name="keywords"]').attr("content")
-                                    rec_str += `@key_words:${data.key_words}\n`
-                                    data.description = $('meta[name="description"]').attr("content")
-                                    rec_str += `@description:${data.description}\n`
-                                    $('script').remove()
-                                    $('style').remove()
-                                    $('noscript').remove()
-                                    $('*').each(function(idx, elem) {
-                                        for (var key in elem.attribs) {
-                                            if (key != 'id' && key != 'class') {
-                                                $(this).removeAttr(key)
-                                            }
-                                        }
-                                    });
-                                    data.domain = domain
-                                    rec_str += `@domain:${data.domain}\n`
-                                    data.domainCode = domainCode
-                                    rec_str += `@domainCode:${data.domainCode}\n`
-                                    let main_t = await GetMain.ParseHTML(body)
-                                    data.mainText = main_t[1]
-                                    rec_str += `@mainText:${data.mainText}\n`
-                                    if (main_t[0] != 'null') {
-                                        $(main_t[0]).addClass("my_main_block")
-                                        $(main_t[0]).find('*').each((idx, inneritem) => {
-                                            let key = $(inneritem).text().replace(/[\n|\t|\r|\s]/g, "").toString()
-                                            if (!is_time($(inneritem).text().replace(/[\n|\t|\r]/g, ""))) {
-                                                if (key.length < 30 && key.length) {
-                                                    if (pat_table[get_source(domain)] != undefined) {
-                                                        if (pat_table[get_source(domain)][key] != undefined) {
-                                                            pat_table[get_source(domain)][key] += 1
-                                                        } else {
-                                                            pat_table[get_source(domain)][key] = 1
-                                                        }
-                                                    } else {
-                                                        pat_table[get_source(domain)] = {}
-                                                        pat_table[get_source(domain)][key] = 1
-                                                    }
+    let file_worker = cluster.fork();
+    var promise = new Promise(async function(resolve, reject) {
+        register(user => {
+            config.user = user
+            console.log(`user name is ${user}`)
+            let timer = setInterval(() => {
+                get_url_from_server(r => {
+                    if (r.status) {
+                        if (r.pool.length) {
+                            url_pool = r.pool
+                            console.log(`取得${r.pool.length}筆url`)
+                            resolve()
+                            clearInterval(timer)
+                        } else {
+                            console.log("取回數量0,重新索取")
+                        }
+                    } else {
+                        console.log(r.msg)
+                    }
+                })
+            }, config.wait_pool_fill);
+        })
+    }).then(() => {
+        let save_data = []
+        let save_url = []
+        let link_triples = []
+        let pat_table = {}
+        async.forever(function(cb) {
+            async.waterfall([
+                function(cb_mid) {
+                    let url_list = url_pool.splice(0, config.batch_size)
+                    console.log(`開始處理${url_list.length}個連結`)
+                    async.eachLimit(url_list, config.batch_size, function(item, each_cb) {
+                        (async function() {
+                            let url = item.url
+                            let domain = urL.parse(encodeURI(url.trim())).hostname
+                            let domainCode = domain == null ? "" : md5(domain)
+                            var rec_str = ""
+                            if (detect_table[domainCode] == undefined || detect_table[domainCode].cnt < config.fail_time_limit) {
+                                fetch_url(url, async(rsp_msg) => {
+                                    if (rsp_msg.status) {
+                                        let body = rsp_msg.msg
+                                        let $ = cheerio.load(body)
+                                        let data = {}
+                                        data.title = $('title').text().trim()
+                                        rec_str += `@title:${data.title}\n`
+                                        data.url = url
+                                        rec_str += `@url:${data.url}\n`
+                                        data.UrlCode = md5(url)
+                                        rec_str += `@UrlCode:${data.UrlCode}\n`
+                                        data.fetch_time = new Date()
+                                        rec_str += `@fetch_time:${data.fetch_time}\n`
+                                        data.key_words = $('meta[name="keywords"]').attr("content")
+                                        rec_str += `@key_words:${data.key_words}\n`
+                                        data.description = $('meta[name="description"]').attr("content")
+                                        rec_str += `@description:${data.description}\n`
+                                        $('script').remove()
+                                        $('style').remove()
+                                        $('noscript').remove()
+                                        $('*').each(function(idx, elem) {
+                                            for (var key in elem.attribs) {
+                                                if (key != 'id' && key != 'class') {
+                                                    $(this).removeAttr(key)
                                                 }
                                             }
-                                        })
-                                    }
-                                    // let ban = 0
-                                    if (detect_table[domainCode] == undefined) {
-                                        detect_table[domainCode] = { content: main_t[1], cnt: 1 }
-                                    } else {
-                                        if (detect_table[domainCode].content == main_t[1]) {
-                                            detect_table[domainCode].cnt++;
-                                            if (detect_table[domainCode].cnt == config.fail_time_limit) {
-                                                em.emit('ban', domain)
-                                                ban = 1
-                                            }
-                                        } else {
-                                            detect_table[domainCode] = { content: main_t, cnt: 1 }
+                                        });
+                                        data.domain = domain
+                                        rec_str += `@domain:${data.domain}\n`
+                                        data.domainCode = domainCode
+                                        rec_str += `@domainCode:${data.domainCode}\n`
+                                        let main_t = await GetMain.ParseHTML(body)
+                                        data.mainText = main_t[1]
+                                        rec_str += `@mainText:${data.mainText}\n`
+                                        if (main_t[0] != 'null') {
+                                            $(main_t[0]).addClass("my_main_block")
+                                            $(main_t[0]).find('*').each((idx, inneritem) => {
+                                                let key = $(inneritem).text().replace(/[\n|\t|\r|\s]/g, "").toString()
+                                                if (!is_time($(inneritem).text().replace(/[\n|\t|\r]/g, ""))) {
+                                                    if (key.length < 30 && key.length) {
+                                                        if (pat_table[get_source(domain)] != undefined) {
+                                                            if (pat_table[get_source(domain)][key] != undefined) {
+                                                                pat_table[get_source(domain)][key] += 1
+                                                            } else {
+                                                                pat_table[get_source(domain)][key] = 1
+                                                            }
+                                                        } else {
+                                                            pat_table[get_source(domain)] = {}
+                                                            pat_table[get_source(domain)][key] = 1
+                                                        }
+                                                    }
+                                                }
+                                            })
                                         }
-                                    }
-                                    // if (!ban) {
-                                    let find_dns = await get_ip(data.domain)
-                                    if (find_dns == "error") {
-                                        data.host_ip = "404"
-                                    } else {
-                                        data.host_ip = find_dns
-                                    }
-                                    rec_str += `@host_ip:${data.host_ip}\n`
-                                    rec_str += `@body:${$('body').html()}\n`
-                                    if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
-                                        //file exists
-                                        let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
-                                        let fileSizeInBytes = stats["size"]
-                                        if (fileSizeInBytes > 200000000) {
-                                            rec_file_cnt++
-                                            fs.closeSync(rec_fd)
-                                            rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
-                                        }
-                                    }
-                                    fs.writeSync(rec_fd, rec_str)
-                                    let urls_in_page = parse_url_in_body(data.url, body)
-                                    if (link_cnt_per_src[get_source(domain)] != undefined) {
-                                        link_cnt_per_src[get_source(domain)].page_cnt += 1
-                                        link_cnt_per_src[get_source(domain)].a_cnt += urls_in_page.link_in_page.length
-                                    } else {
-                                        link_cnt_per_src[get_source(domain)] = {}
-                                        link_cnt_per_src[get_source(domain)].page_cnt = 1
-                                        link_cnt_per_src[get_source(domain)].a_cnt = urls_in_page.link_in_page.length
-                                    }
-                                    save_url = save_url.concat(urls_in_page.link_in_page)
-                                    link_triples = link_triples.concat(urls_in_page.link_triples)
-                                        // await update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
-                                    update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
-                                    save_data.push(data);
-                                    // }
-                                    each_cb()
-                                } else if (rsp_msg.msg == 'err') {
-                                    if (detect_table[domainCode] == undefined) {
-                                        detect_table[domainCode] = { content: 'err', cnt: 1 }
-                                    } else {
-                                        if (detect_table[domainCode].content == 'err') {
-                                            detect_table[domainCode].cnt++;
-                                            if (detect_table[domainCode].cnt == config.fail_time_limit) {
-                                                em.emit('ban', domain)
-                                            }
+                                        if (detect_table[domainCode] == undefined) {
+                                            detect_table[domainCode] = { content: main_t[1], cnt: 1 }
                                         } else {
+                                            if (detect_table[domainCode].content == main_t[1]) {
+                                                detect_table[domainCode].cnt++;
+                                                if (detect_table[domainCode].cnt == config.fail_time_limit) {
+                                                    em.emit('ban', domain)
+                                                    ban = 1
+                                                }
+                                            } else {
+                                                detect_table[domainCode] = { content: main_t, cnt: 1 }
+                                            }
+                                        }
+                                        let find_dns = await get_ip(data.domain)
+                                        if (find_dns == "error") {
+                                            data.host_ip = "404"
+                                        } else {
+                                            data.host_ip = find_dns
+                                        }
+                                        rec_str += `@host_ip:${data.host_ip}\n`
+                                        rec_str += `@body:${$('body').html()}\n`
+                                        file_worker.send({ type: "write", content: rec_str })
+                                        let urls_in_page = parse_url_in_body(data.url, body)
+                                        save_url = save_url.concat(urls_in_page.link_in_page)
+                                        link_triples = link_triples.concat(urls_in_page.link_triples)
+                                        update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time)
+                                        save_data.push(data);
+                                        each_cb()
+                                    } else if (rsp_msg.msg == 'err') {
+                                        if (detect_table[domainCode] == undefined) {
                                             detect_table[domainCode] = { content: 'err', cnt: 1 }
+                                        } else {
+                                            if (detect_table[domainCode].content == 'err') {
+                                                detect_table[domainCode].cnt++;
+                                                if (detect_table[domainCode].cnt == config.fail_time_limit) {
+                                                    em.emit('ban', domain)
+                                                }
+                                            } else {
+                                                detect_table[domainCode] = { content: 'err', cnt: 1 }
+                                            }
                                         }
+                                        update_rec(md5(url), 'text', '@fetch:false')
+                                        console.log(`${url}`)
+                                        console.log(rsp_msg)
+                                        each_cb()
+                                    } else if (rsp_msg.msg == 'break_url') {
+                                        console.log(`${url} is broken`)
+                                        each_cb()
+                                    } else {
+                                        console.log(url)
+                                        console.log(rsp_msg)
+                                        each_cb()
                                     }
-                                    // await update_rec(md5(url), 'text', '@fetch:false')
-                                    update_rec(md5(url), 'text', '@fetch:false')
-                                    console.log(`${url}`)
-                                    console.log(rsp_msg)
-                                    each_cb()
-                                } else if (rsp_msg.msg == 'break_url') {
-                                    console.log(`${url} is broken`)
-                                    each_cb()
-                                } else {
-                                    console.log(url)
-                                    console.log(rsp_msg)
-                                    each_cb()
-                                }
-                            });
-                        } else {
-                            // await update_rec(md5(url), 'text', '@fetch:false')
-                            update_rec(md5(url), 'text', '@fetch:false')
-                            console.log(`${url}可能被ban了`)
-                            each_cb()
-                        }
-                    })()
-                }, function(err) {
-                    if (err) {
-                        console.log(err)
-                    }
-                    cb_mid(null)
-                })
-            },
-            function(cb_mid2) {
-                console.log(`預計儲存${save_data.length}筆record`)
-                if (save_data.length) {
-                    save_rec(config.record_db, save_data)
-                }
-                if (link_triples.length) {
-                    save_rec(config.triple_db, link_triples)
-                }
-                save_data = []
-                link_triples = []
-                if (url_pool.length == 0) {
-                    // for (let src in link_cnt_per_src) {
-                    // update_linkcnt_record(src, link_cnt_per_src[src], (success, rst) => {
-                    // if (success) {
-                    //     cache.set(`linkcnt_${src}`, rst, 3 * 60 * 60, function(err) {
-                    //         if (err) {
-                    //             console.log(err)
-                    //         }
-                    //     })
-                    // } else {
-                    //     console.log(rst)
-                    // }
-                    // });
-                    // }
-                    //         for (let src in pat_table) {
-                    //             // update_pat_record(src, pat_table[src], (success, rst) => {
-                    //             if (success) {
-                    //                 cache.set(`pat_${src}`, rst, 3 * 60 * 60, function(err) {
-                    //                     if (err) {
-                    //                         console.log(err)
-                    //                     }
-                    //                 })
-                    //             } else {
-                    //                 console.log(rst)
-                    //             }
-                    //         // })
-                    // }
-                    save_url = save_url.unique()
-                    if (save_url.length) {
-                        url_back2server(config.pool_db, save_url)
-                    }
-                    save_url = []
-                    link_cnt_per_src = {}
-                    pat_table = {}
-                    console.log('pool已空，向server請求連結')
-                    let timer = setInterval(() => {
-                        get_url_from_server(r => {
-                            if (r.status) {
-                                if (r.pool.length) {
-                                    url_pool = r.pool
-                                    cb(null)
-                                    clearInterval(timer)
-                                }
+                                });
                             } else {
-                                console.log(r.msg)
+                                update_rec(md5(url), 'text', '@fetch:false')
+                                console.log(`${url}可能被ban了`)
+                                each_cb()
                             }
-                        })
-                    }, config.wait_pool_fill);
-                } else {
-                    setTimeout(() => {
-                        cb(null)
-                    }, config.timeout);
+                        })()
+                    }, function(err) {
+                        if (err) {
+                            console.log(err)
+                        }
+                        cb_mid(null)
+                    })
+                },
+                function(cb_mid2) {
+                    console.log(`預計儲存${save_data.length}筆record`)
+                    if (save_data.length) {
+                        save_rec(config.record_db, save_data)
+                    }
+                    if (link_triples.length) {
+                        save_rec(config.triple_db, link_triples)
+                    }
+                    save_data = []
+                    link_triples = []
+                    if (url_pool.length == 0) {
+                        save_url = save_url.unique()
+                        if (save_url.length) {
+                            url_back2server(config.pool_db, save_url)
+                        }
+                        save_url = []
+                        pat_table = {}
+                        console.log('pool已空，向server請求連結')
+                        let timer = setInterval(() => {
+                            get_url_from_server(r => {
+                                if (r.status) {
+                                    if (r.pool.length) {
+                                        url_pool = r.pool
+                                        cb(null)
+                                        clearInterval(timer)
+                                    }
+                                } else {
+                                    console.log(r.msg)
+                                }
+                            })
+                        }, config.wait_pool_fill);
+                    } else {
+                        setTimeout(() => {
+                            cb(null)
+                        }, config.timeout);
+                    }
+                }
+            ])
+        }, function(err) {
+            console.log('leave loop')
+            console.log(err)
+        })
+    });
+} else {
+    var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+    process.on('message', function(msg) {
+        if (msg.type == "write") {
+            if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
+                //file exists
+                let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
+                let fileSizeInBytes = stats["size"]
+                if (fileSizeInBytes > 200000000) {
+                    rec_file_cnt++
+                    fs.closeSync(rec_fd)
+                    rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
                 }
             }
-        ])
-    }, function(err) {
-        console.log('leave loop')
-        console.log(err)
+            fs.writeSync(rec_fd, msg.rec_str)
+        }
     })
-});
+}
 //time out code :ESOCKETTIMEDOUT
