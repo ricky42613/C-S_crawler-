@@ -10,9 +10,9 @@ var dns = require('dns')
 var cluster = require('cluster')
 
 var sourceDB = 'http://nubot70.taiwin.tw:5802'
-var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
+var targetDB = new GAIS('onlybtw.ddns.net:5802')
     // var record_db = "original_rec"
-var record_db = "original_rec2"
+var record_db = "record3"
 var start = parseInt(process.argv[2])
 var url_file_path = `./url_${start}.txt`
 var f_url = fs.openSync(url_file_path, "a+")
@@ -24,7 +24,7 @@ var triple_file_cnt = 1
 var total_size = parseInt(process.argv[3])
 var END_RID = start + total_size
 var black_key_list = ['undefined', '../', 'javascript:', 'mailto:']
-var batch = 20
+var batch = 30
 
 Array.prototype.unique = function() {
     let table = {}
