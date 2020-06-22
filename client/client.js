@@ -366,42 +366,42 @@ if (cluster.isMaster) {
                                     let $ = cheerio.load(body)
                                     let data = {}
                                     data.title = $('title').text().trim()
-                                        // rec_str += `@title:${data.title}\n`
+                                    rec_str += `@title:${data.title}\n`
                                     data.url = url
-                                        // rec_str += `@url:${data.url}\n`
+                                    rec_str += `@url:${data.url}\n`
                                     data.UrlCode = md5(url)
-                                        // rec_str += `@UrlCode:${data.UrlCode}\n`
+                                    rec_str += `@UrlCode:${data.UrlCode}\n`
                                     data.fetch_time = new Date()
-                                        // rec_str += `@fetch_time:${data.fetch_time}\n`
+                                    rec_str += `@fetch_time:${data.fetch_time}\n`
                                     data.key_words = $('meta[name="keywords"]').attr("content")
-                                        // rec_str += `@key_words:${data.key_words}\n`
+                                    rec_str += `@key_words:${data.key_words}\n`
                                     data.description = $('meta[name="description"]').attr("content")
-                                        // rec_str += `@description:${data.description}\n`
-                                        // $('script').remove()
-                                        // $('style').remove()
-                                        // $('noscript').remove()
-                                        // $('*').each(function(idx, elem) {
-                                        //     for (var key in elem.attribs) {
-                                        //         if (key != 'id' && key != 'class') {
-                                        //             $(this).removeAttr(key)
-                                        //         }
-                                        //     }
-                                        // });
+                                    rec_str += `@description:${data.description}\n`
+                                    $('script').remove()
+                                    $('style').remove()
+                                    $('noscript').remove()
+                                    $('*').each(function(idx, elem) {
+                                        for (var key in elem.attribs) {
+                                            if (key != 'id' && key != 'class') {
+                                                $(this).removeAttr(key)
+                                            }
+                                        }
+                                    });
                                     data.domain = domain
-                                        // rec_str += `@domain:${data.domain}\n`
+                                    rec_str += `@domain:${data.domain}\n`
                                     data.domainCode = domainCode
-                                        // rec_str += `@domainCode:${data.domainCode}\n`
+                                    rec_str += `@domainCode:${data.domainCode}\n`
                                     let main_t = await GetMain.ParseHTML(body)
                                     data.mainText = main_t[1]
-                                        // rec_str += `@mainText:${data.mainText}\n`;
-                                        // let find_dns = await get_ip(data.domain)
-                                        // if (find_dns == "error") {
-                                        //     data.host_ip = "404"
-                                        // } else {
-                                        //     data.host_ip = find_dns
-                                        // }
-                                        // rec_str += `@host_ip:${data.host_ip}\n`
-                                        // rec_str += `@body:${$('body').html().replace(/[\n|\t|\r]/g, "")}\n`
+                                    rec_str += `@mainText:${data.mainText}\n`;
+                                    let find_dns = await get_ip(data.domain)
+                                    if (find_dns == "error") {
+                                        data.host_ip = "404"
+                                    } else {
+                                        data.host_ip = find_dns
+                                    }
+                                    rec_str += `@host_ip:${data.host_ip}\n`
+                                    rec_str += `@body:${$('body').html().replace(/[\n|\t|\r]/g, "")}\n`
                                     file_worker.send({ type: "write", content: rec_str })
                                     let urls_in_page = parse_url_in_body(data.url, body)
                                     save_url = save_url.concat(urls_in_page.link_in_page)
@@ -436,10 +436,6 @@ if (cluster.isMaster) {
                     })
                 },
                 function(cb_mid2) {
-                    console.log(`預計儲存${save_data.length}筆record`)
-                    if (save_data.length) {
-                        save_rec(config.record_db, save_data)
-                    }
                     if (link_triples.length) {
                         save_rec(config.triple_db, link_triples)
                     }
