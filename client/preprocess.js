@@ -10,8 +10,8 @@ var dns = require('dns')
 var cluster = require('cluster')
 
 var sourceDB = 'http://nubot70.taiwin.tw:5802'
-var targetDB = new GAIS('gaisdb.ccu.edu.tw:5805')
-var record_db = "original_rec2"
+var targetDB = new GAIS('onlybtw.ddns.net:5802')
+var record_db = "record3"
 var start = parseInt(process.argv[2])
 var url_file_path = `./url_${start}.txt`
 var f_url = fs.openSync(url_file_path, "a+")
@@ -23,7 +23,6 @@ var triple_file_cnt = 1
 var total_size = parseInt(process.argv[3])
 var END_RID = start + total_size
 var black_key_list = ['undefined', '../', 'javascript:', 'mailto:']
-var shutdown_signal = 0
 var batch = 10
 var batch_cnt = 0
 
@@ -225,6 +224,7 @@ function save_rec(db, data) {
     return new Promise(async function(resolve, reject) {
         console.log("start save")
         let r = await targetDB.insert(db, data)
+        console.log("finish save")
         if (!r.status) {
             setTimeout(async function() {
                 await save_rec(db, data)
@@ -284,6 +284,7 @@ if (cluster.isMaster) {
                                             console.log("timeout")
                                             is_callback = 1
                                             await save_rec(record_db, save_data);
+                                            // await save_rec(record_db, save_data);
                                             inner_next(null)
                                         }
                                     }, 8000)
@@ -331,6 +332,7 @@ if (cluster.isMaster) {
                                                         if (!is_callback) {
                                                             is_callback = 1
                                                             await save_rec(record_db, save_data);
+                                                            // save_rec(record_db, save_data);
                                                             inner_next(null)
                                                         }
                                                     }
@@ -342,6 +344,7 @@ if (cluster.isMaster) {
                                                         if (!is_callback) {
                                                             is_callback = 1
                                                             await save_rec(record_db, save_data);
+                                                            // save_rec(record_db, save_data);
                                                             inner_next(null)
                                                         }
                                                     }
@@ -354,6 +357,7 @@ if (cluster.isMaster) {
                                                     if (!is_callback) {
                                                         is_callback = 1
                                                         await save_rec(record_db, save_data);
+                                                        // save_rec(record_db, save_data);
                                                         inner_next(null)
                                                     }
                                                 }
