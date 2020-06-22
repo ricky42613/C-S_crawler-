@@ -352,8 +352,9 @@ if (cluster.isMaster) {
         async.forever(function(cb) {
             async.waterfall([
                 function(cb_mid) {
+                    console.log(`原有${url_pool.length}個連結`)
                     let url_list = url_pool.splice(0, config.batch_size)
-                    console.log(`開始處理${url_list.length}個連結`)
+                    console.log(`剩下${url_pool.length}個連結`)
                     async.eachLimit(url_list, config.batch_size, function(item, each_cb) {
                         (async function() {
                             let url = item.url
@@ -414,7 +415,7 @@ if (cluster.isMaster) {
                                         // console.timeEnd(`save ${url}`)
                                     each_cb()
                                 } else if (rsp_msg.msg == 'err') {
-                                    update_rec(md5(url), 'text', '@fetch:false')
+                                    // update_rec(md5(url), 'text', '@fetch:false')
                                     console.log(`${url}`)
                                     console.log(rsp_msg)
                                     each_cb()
@@ -441,14 +442,13 @@ if (cluster.isMaster) {
                     }
                     save_data = []
                     link_triples = []
+                    save_url = save_url.unique()
+                    console.log(save_url)
+                    if (save_url.length) {
+                        url_back2server(save_url)
+                    }
+                    save_url = []
                     if (url_pool.length == 0) {
-                        console.log(save_url)
-                        save_url = save_url.unique()
-                        console.log(save_url)
-                        if (save_url.length) {
-                            url_back2server(save_url)
-                        }
-                        save_url = []
                         pat_table = {}
                         console.log('pool已空，向server請求連結')
                         let timer = setInterval(() => {
