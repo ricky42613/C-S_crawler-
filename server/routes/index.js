@@ -280,33 +280,32 @@ router.get('/get_url', async function(req, res, next) {
         //     } else {
         let data = {}
         data.status = true
-        let location = -1
-        req.app.locals.client_list.forEach((item, idx) => {
-            if (item.id == user) {
-                location = idx * size
-            }
-        })
-        req.app.locals.client_list[location / size].last_time = new Date()
-        if (location == -1) {
+            // let location = -1
+            // req.app.locals.client_list.forEach((item, idx) => {
+            //     if (item.id == user) {
+            //         location = idx * size
+            //     }
+            // })
+            // req.app.locals.client_list[location / size].last_time = new Date()
+            // if (location == -1) {
+            //     res.json({
+            //         status: false,
+            //         msg: '使用者已消失'
+            //     })
+            // } else {
+        data.url_list = req.app.locals.link_pool.splice(0, size)
+        if (data.url_list.length) {
+            console.log(`pool原長度${req.app.locals.link_pool.length}`)
+            console.log(`pool切割後長度${req.app.locals.link_pool.length}`)
+            res.json(data)
+        } else {
+            console.log(`使用者位於${location}`)
             res.json({
                 status: false,
-                msg: '使用者已消失'
+                msg: 'queue已空'
             })
-        } else {
-            data.url_list = req.app.locals.link_pool.slice(0, size)
-            if (data.url_list.length) {
-                console.log(`pool原長度${req.app.locals.link_pool.length}`)
-                req.app.locals.link_pool.splice(location, size)
-                console.log(`pool切割後長度${req.app.locals.link_pool.length}`)
-                res.json(data)
-            } else {
-                console.log(`使用者位於${location}`)
-                res.json({
-                    status: false,
-                    msg: 'queue已空'
-                })
-            }
         }
+        // }
         //     }
         // })
     }
