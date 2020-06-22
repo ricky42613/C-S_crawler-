@@ -292,7 +292,6 @@ if (cluster.isMaster) {
                                         try {
                                             let url = item.rec.url
                                             fetch_url(url, async rst => {
-                                                console.log(`fetch ${i}:${url}`)
                                                 if (rst.status) {
                                                     let body = rst.msg
                                                     let $ = cheerio.load(body)
@@ -335,7 +334,7 @@ if (cluster.isMaster) {
                                         } catch (e) {
                                             callback()
                                         }
-                                    }, function(err) {
+                                    }, async function(err) {
                                         if (err) {
                                             console.log(err)
                                         }
@@ -437,7 +436,6 @@ if (cluster.isMaster) {
                                 next(null)
                             })
                         } else {
-                            console.log(rid_list)
                             console.log(rsp.msg)
                             next(null)
                         }
