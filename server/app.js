@@ -6,9 +6,9 @@ var logger = require('morgan');
 var GAIS = require('../gais_api/gais')
 var async = require('async')
 var config = {
-    db_location: "gaisdb.ccu.edu.tw:5805",
+    db_location: "onlybtw.ddns.net:5802",
     pool_db: "dict_pool",
-    record: "dict_record",
+    record: "record3",
     pattern_db: "pattern",
     src_link_cntdb: "src_ave_link",
     black_list: ['undefined', '../', 'javascript:', 'mailto:']
