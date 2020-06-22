@@ -307,18 +307,14 @@ function save_rec(db, data) {
 
 function url_back2server(url_list) {
     return new Promise(function(resolve, reject) {
-        console.log(`${config.server}/url_recycle`)
         request.post({
             url: `${config.server}/url_recycle`,
             form: { data: JSON.stringify(url_list) }
         }, function(e, r, b) {
             if (e) {
-                console.log("url recycle result:")
                 console.log(e)
                 resolve()
             } else {
-                console.log("url recycle result:")
-                console.log(r.body)
                 resolve()
             }
         })
@@ -366,7 +362,6 @@ if (cluster.isMaster) {
                             var rec_str = "";
                             fetch_url(url, async(rsp_msg) => {
                                 if (rsp_msg.status) {
-                                    console.time(`handle ${url}`)
                                     let body = rsp_msg.msg
                                     let $ = cheerio.load(body)
                                     let data = {}
@@ -413,10 +408,9 @@ if (cluster.isMaster) {
                                     link_triples = link_triples.concat(urls_in_page.link_triples)
                                     update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time);
                                     // save_data.push(data);
-                                    console.timeEnd(`handle ${url}`)
-                                        // console.log("start save")
-                                        // console.time(`save ${url}`)
-                                        // await save_rec(config.record_db, data)
+                                    // console.log("start save")
+                                    // console.time(`save ${url}`)
+                                    await save_rec(config.record_db, data)
                                         // console.timeEnd(`save ${url}`)
                                     each_cb()
                                 } else if (rsp_msg.msg == 'err') {
