@@ -355,7 +355,8 @@ var promise = new Promise(async function(resolve, reject) {
                 console.log(`原有${url_pool.length}個連結`)
                 let url_list = url_pool.splice(0, config.batch_size)
                 console.log(`剩下${url_pool.length}個連結`)
-                async.each(url_list, function(item, each_cb) {
+                let cnt = 0
+                url_list.forEach(item => {
                     let url = item.url
                     let domain = urL.parse(encodeURI(url.trim())).hostname
                     let domainCode = domain == null ? "" : md5(domain)
@@ -421,34 +422,45 @@ var promise = new Promise(async function(resolve, reject) {
                                     rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
                                 }
                             }
-                            fs.writeSync(rec_fd, JSON.stringify(data) + "\n")
-                                // console.timeEnd(`save ${url}`)
-                            each_cb(null)
+                            fs.write(rec_fd, JSON.stringify(data) + "\n", function(err) {
+                                if (err) {
+                                    console.log(err)
+                                }
+                                cnt++
+                                if (cnt == config.batch_size) {
+                                    cb_mid(null)
+                                }
+                            });
+                            // console.timeEnd(`save ${url}`)
                         } else if (rsp_msg.msg == 'err') {
                             // update_rec(md5(url), 'text', '@fetch:false')
                             console.log(`${url}`)
                             console.log(rsp_msg)
-                            each_cb(null)
+                            cnt++
+                            if (cnt == config.batch_size) {
+                                cb_mid(null)
+                            }
                         } else if (rsp_msg.msg == 'break_url') {
                             console.log(`${url} is broken`)
-                            each_cb(null)
+                            cnt++
+                            if (cnt == config.batch_size) {
+                                cb_mid(null)
+                            }
                         } else {
                             console.log(url)
                             console.log(rsp_msg)
-                            each_cb(null)
+                            cnt++
+                            if (cnt == config.batch_size) {
+                                cb_mid(null)
+                            }
                         }
                     });
-                }, function(err) {
-                    if (err) {
-                        console.log(err)
-                    }
-                    cb_mid(null)
                 })
             },
             function(cb_mid2) {
-                if (link_triples.length) {
-                    save_rec(config.triple_db, link_triples)
-                }
+                // if (link_triples.length) {
+                //     save_rec(config.triple_db, link_triples)
+                // }
                 save_data = []
                 link_triples = []
                 save_url = save_url.unique()
