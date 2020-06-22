@@ -356,6 +356,7 @@ var promise = new Promise(async function(resolve, reject) {
                 let url_list = url_pool.splice(0, config.batch_size)
                 console.log(`剩下${url_pool.length}個連結`)
                 let cnt = 0
+                let fail = 0
                 url_list.forEach(item => {
                     let url = item.url
                     let domain = urL.parse(encodeURI(url.trim())).hostname
@@ -429,6 +430,7 @@ var promise = new Promise(async function(resolve, reject) {
                                 cnt++
                                 if (cnt == config.batch_size) {
                                     cb_mid(null)
+                                    console.log("fail rate:" + fail / cnt)
                                 }
                             });
                             // console.timeEnd(`save ${url}`)
@@ -437,21 +439,27 @@ var promise = new Promise(async function(resolve, reject) {
                             console.log(`${url}`)
                             console.log(rsp_msg)
                             cnt++
+                            fail++
                             if (cnt == config.batch_size) {
                                 cb_mid(null)
+                                console.log("fail rate:" + fail / cnt)
                             }
                         } else if (rsp_msg.msg == 'break_url') {
                             console.log(`${url} is broken`)
                             cnt++
+                            fail++
                             if (cnt == config.batch_size) {
                                 cb_mid(null)
+                                console.log("fail rate:" + fail / cnt)
                             }
                         } else {
                             console.log(url)
                             console.log(rsp_msg)
                             cnt++
+                            fail++
                             if (cnt == config.batch_size) {
                                 cb_mid(null)
+                                console.log("fail rate:" + fail / cnt)
                             }
                         }
                     });
