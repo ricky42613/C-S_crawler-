@@ -13,7 +13,7 @@ var cluster = require('cluster');
 // var cache = new memcached('localhost:8888')
 var rec_file = "./rec"
 var rec_file_cnt = 1
-    // var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
 var GetMain = require('../gais_api/parseMain')
 var GAIS = require('../gais_api/gais')
 var urL = require('url')
@@ -410,7 +410,18 @@ var promise = new Promise(async function(resolve, reject) {
                             // save_data.push(data);
                             // console.log("start save")
                             // console.time(`save ${url}`)
-                            await save_rec(config.record_db, data)
+                            // await save_rec(config.record_db, data)
+                            if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
+                                //file exists
+                                let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
+                                let fileSizeInBytes = stats["size"]
+                                if (fileSizeInBytes > 200000000) {
+                                    rec_file_cnt++
+                                    fs.closeSync(rec_fd)
+                                    rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+                                }
+                            }
+                            fs.writeSync(rec_fd, JSON.stringify(data) + "\n")
                                 // console.timeEnd(`save ${url}`)
                             each_cb(null)
                         } else if (rsp_msg.msg == 'err') {
