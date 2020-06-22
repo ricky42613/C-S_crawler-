@@ -590,7 +590,7 @@ router.post('/url_recycle', function(req, res, next) {
                 diff_cnt++
             }
         }
-        console.log(`diffenent rate:${diff_cnt}`)
+        console.log(`diffenent rate:${diff_cnt/url_list.length}`)
         save_rec(req.app.locals.parse_config.pool_db, new_url_list)
         res.json({ status: true })
     } catch (e) {

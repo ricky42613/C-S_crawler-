@@ -321,175 +321,175 @@ function url_back2server(url_list) {
     })
 }
 
-if (cluster.isMaster) {
-    let file_worker = cluster.fork();
-    var promise = new Promise(async function(resolve, reject) {
-        register(user => {
-            config.user = user
-            console.log(`user name is ${user}`)
-            let timer = setInterval(() => {
-                get_url_from_server(r => {
-                    if (r.status) {
-                        if (r.pool.length) {
-                            url_pool = r.pool
-                            console.log(`取得${r.pool.length}筆url`)
-                            resolve()
-                            clearInterval(timer)
-                        } else {
-                            console.log("取回數量0,重新索取")
-                        }
+// if (cluster.isMaster) {
+// let file_worker = cluster.fork();
+var promise = new Promise(async function(resolve, reject) {
+    register(user => {
+        config.user = user
+        console.log(`user name is ${user}`)
+        let timer = setInterval(() => {
+            get_url_from_server(r => {
+                if (r.status) {
+                    if (r.pool.length) {
+                        url_pool = r.pool
+                        console.log(`取得${r.pool.length}筆url`)
+                        resolve()
+                        clearInterval(timer)
                     } else {
-                        console.log(r.msg)
+                        console.log("取回數量0,重新索取")
                     }
-                })
-            }, config.wait_pool_fill);
-        })
-    }).then(() => {
-        let save_data = []
-        let save_url = []
-        let link_triples = []
-        let pat_table = {}
-        async.forever(function(cb) {
-            async.waterfall([
-                function(cb_mid) {
-                    console.log(`原有${url_pool.length}個連結`)
-                    let url_list = url_pool.splice(0, config.batch_size)
-                    console.log(`剩下${url_pool.length}個連結`)
-                    async.eachLimit(url_list, config.batch_size, function(item, each_cb) {
-                        (async function() {
-                            let url = item.url
-                            let domain = urL.parse(encodeURI(url.trim())).hostname
-                            let domainCode = domain == null ? "" : md5(domain)
-                            var rec_str = "";
-                            fetch_url(url, async(rsp_msg) => {
-                                if (rsp_msg.status) {
-                                    let body = rsp_msg.msg
-                                    let $ = cheerio.load(body)
-                                    let data = {}
-                                    data.title = $('title').text().trim()
-                                    rec_str += `@title:${data.title}\n`
-                                    data.url = url
-                                    rec_str += `@url:${data.url}\n`
-                                    data.UrlCode = md5(url)
-                                    rec_str += `@UrlCode:${data.UrlCode}\n`
-                                    data.fetch_time = new Date()
-                                    rec_str += `@fetch_time:${data.fetch_time}\n`
-                                    data.key_words = $('meta[name="keywords"]').attr("content")
-                                    rec_str += `@key_words:${data.key_words}\n`
-                                    data.description = $('meta[name="description"]').attr("content")
-                                    rec_str += `@description:${data.description}\n`
-                                    $('script').remove()
-                                    $('style').remove()
-                                    $('noscript').remove()
-                                    $('*').each(function(idx, elem) {
-                                        for (var key in elem.attribs) {
-                                            if (key != 'id' && key != 'class') {
-                                                $(this).removeAttr(key)
-                                            }
-                                        }
-                                    });
-                                    data.domain = domain
-                                    rec_str += `@domain:${data.domain}\n`
-                                    data.domainCode = domainCode
-                                    rec_str += `@domainCode:${data.domainCode}\n`
-                                    let main_t = await GetMain.ParseHTML(body)
-                                    data.mainText = main_t[1]
-                                    rec_str += `@mainText:${data.mainText}\n`;
-                                    let find_dns = await get_ip(data.domain)
-                                    if (find_dns == "error") {
-                                        data.host_ip = "404"
-                                    } else {
-                                        data.host_ip = find_dns
-                                    }
-                                    rec_str += `@host_ip:${data.host_ip}\n`
-                                    rec_str += `@body:${$('body').html().replace(/[\n|\t|\r]/g, "")}\n`
-                                    file_worker.send({ type: "write", content: rec_str })
-                                    let urls_in_page = parse_url_in_body(data.url, body)
-                                    save_url = save_url.concat(urls_in_page.link_in_page)
-                                    link_triples = link_triples.concat(urls_in_page.link_triples)
-                                    update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time);
-                                    // save_data.push(data);
-                                    // console.log("start save")
-                                    // console.time(`save ${url}`)
-                                    await save_rec(config.record_db, data)
-                                        // console.timeEnd(`save ${url}`)
-                                    each_cb()
-                                } else if (rsp_msg.msg == 'err') {
-                                    // update_rec(md5(url), 'text', '@fetch:false')
-                                    console.log(`${url}`)
-                                    console.log(rsp_msg)
-                                    each_cb()
-                                } else if (rsp_msg.msg == 'break_url') {
-                                    console.log(`${url} is broken`)
-                                    each_cb()
-                                } else {
-                                    console.log(url)
-                                    console.log(rsp_msg)
-                                    each_cb()
-                                }
-                            });
-                        })()
-                    }, function(err) {
-                        if (err) {
-                            console.log(err)
-                        }
-                        cb_mid(null)
-                    })
-                },
-                function(cb_mid2) {
-                    if (link_triples.length) {
-                        save_rec(config.triple_db, link_triples)
-                    }
-                    save_data = []
-                    link_triples = []
-                    save_url = save_url.unique()
-                    console.log(save_url)
-                    if (save_url.length) {
-                        url_back2server(save_url)
-                    }
-                    save_url = []
-                    if (url_pool.length == 0) {
-                        pat_table = {}
-                        console.log('pool已空，向server請求連結')
-                        let timer = setInterval(() => {
-                            get_url_from_server(r => {
-                                if (r.status) {
-                                    if (r.pool.length) {
-                                        url_pool = r.pool
-                                        cb(null)
-                                        clearInterval(timer)
-                                    }
-                                } else {
-                                    console.log(r.msg)
-                                }
-                            })
-                        }, config.wait_pool_fill);
-                    } else {
-                        cb(null)
-                    }
+                } else {
+                    console.log(r.msg)
                 }
-            ])
-        }, function(err) {
-            console.log('leave loop')
-            console.log(err)
-        })
-    });
-} else {
-    var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
-    process.on('message', function(msg) {
-        if (msg.type == "write") {
-            if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
-                //file exists
-                let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
-                let fileSizeInBytes = stats["size"]
-                if (fileSizeInBytes > 200000000) {
-                    rec_file_cnt++
-                    fs.closeSync(rec_fd)
-                    rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+            })
+        }, config.wait_pool_fill);
+    })
+}).then(() => {
+    let save_data = []
+    let save_url = []
+    let link_triples = []
+    let pat_table = {}
+    async.forever(function(cb) {
+        async.waterfall([
+            function(cb_mid) {
+                console.log(`原有${url_pool.length}個連結`)
+                let url_list = url_pool.splice(0, config.batch_size)
+                console.log(`剩下${url_pool.length}個連結`)
+                async.each(url_list, function(item, each_cb) {
+                    (async function() {
+                        let url = item.url
+                        let domain = urL.parse(encodeURI(url.trim())).hostname
+                        let domainCode = domain == null ? "" : md5(domain)
+                        var rec_str = "";
+                        fetch_url(url, async(rsp_msg) => {
+                            if (rsp_msg.status) {
+                                let body = rsp_msg.msg
+                                let $ = cheerio.load(body)
+                                let data = {}
+                                data.title = $('title').text().trim()
+                                    // rec_str += `@title:${data.title}\n`
+                                data.url = url
+                                    // rec_str += `@url:${data.url}\n`
+                                data.UrlCode = md5(url)
+                                    // rec_str += `@UrlCode:${data.UrlCode}\n`
+                                data.fetch_time = new Date()
+                                    // rec_str += `@fetch_time:${data.fetch_time}\n`
+                                data.key_words = $('meta[name="keywords"]').attr("content")
+                                    // rec_str += `@key_words:${data.key_words}\n`
+                                data.description = $('meta[name="description"]').attr("content")
+                                    // rec_str += `@description:${data.description}\n`
+                                    // $('script').remove()
+                                    // $('style').remove()
+                                    // $('noscript').remove()
+                                    // $('*').each(function(idx, elem) {
+                                    //     for (var key in elem.attribs) {
+                                    //         if (key != 'id' && key != 'class') {
+                                    //             $(this).removeAttr(key)
+                                    //         }
+                                    //     }
+                                    // });
+                                data.domain = domain
+                                    // rec_str += `@domain:${data.domain}\n`
+                                data.domainCode = domainCode
+                                    // rec_str += `@domainCode:${data.domainCode}\n`
+                                let main_t = await GetMain.ParseHTML(body)
+                                    // data.mainText = main_t[1]
+                                    // rec_str += `@mainText:${data.mainText}\n`;
+                                let find_dns = await get_ip(data.domain)
+                                if (find_dns == "error") {
+                                    data.host_ip = "404"
+                                } else {
+                                    data.host_ip = find_dns
+                                }
+                                // rec_str += `@host_ip:${data.host_ip}\n`
+                                // rec_str += `@body:${$('body').html().replace(/[\n|\t|\r]/g, "")}\n`
+                                // file_worker.send({ type: "write", content: rec_str })
+                                let urls_in_page = parse_url_in_body(data.url, body)
+                                save_url = save_url.concat(urls_in_page.link_in_page)
+                                link_triples = link_triples.concat(urls_in_page.link_triples)
+                                update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time);
+                                // save_data.push(data);
+                                // console.log("start save")
+                                // console.time(`save ${url}`)
+                                await save_rec(config.record_db, data)
+                                    // console.timeEnd(`save ${url}`)
+                                each_cb(null)
+                            } else if (rsp_msg.msg == 'err') {
+                                // update_rec(md5(url), 'text', '@fetch:false')
+                                console.log(`${url}`)
+                                console.log(rsp_msg)
+                                each_cb(null)
+                            } else if (rsp_msg.msg == 'break_url') {
+                                console.log(`${url} is broken`)
+                                each_cb(null)
+                            } else {
+                                console.log(url)
+                                console.log(rsp_msg)
+                                each_cb(null)
+                            }
+                        });
+                    })()
+                }, function(err) {
+                    if (err) {
+                        console.log(err)
+                    }
+                    cb_mid(null)
+                })
+            },
+            function(cb_mid2) {
+                if (link_triples.length) {
+                    save_rec(config.triple_db, link_triples)
+                }
+                save_data = []
+                link_triples = []
+                save_url = save_url.unique()
+                console.log(save_url)
+                if (save_url.length) {
+                    url_back2server(save_url)
+                }
+                save_url = []
+                if (url_pool.length == 0) {
+                    pat_table = {}
+                    console.log('pool已空，向server請求連結')
+                    let timer = setInterval(() => {
+                        get_url_from_server(r => {
+                            if (r.status) {
+                                if (r.pool.length) {
+                                    url_pool = r.pool
+                                    cb(null)
+                                    clearInterval(timer)
+                                }
+                            } else {
+                                console.log(r.msg)
+                            }
+                        })
+                    }, config.wait_pool_fill);
+                } else {
+                    cb(null)
                 }
             }
-            fs.writeSync(rec_fd, msg.content + "\n")
-        }
+        ])
+    }, function(err) {
+        console.log('leave loop')
+        console.log(err)
     })
-}
+});
+// } else {
+//     var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+//     process.on('message', function(msg) {
+//         if (msg.type == "write") {
+//             if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
+//                 //file exists
+//                 let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
+//                 let fileSizeInBytes = stats["size"]
+//                 if (fileSizeInBytes > 200000000) {
+//                     rec_file_cnt++
+//                     fs.closeSync(rec_fd)
+//                     rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+//                 }
+//             }
+//             fs.writeSync(rec_fd, msg.content + "\n")
+//         }
+//     })
+// }
 //time out code :ESOCKETTIMEDOUT
