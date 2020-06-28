@@ -20,11 +20,15 @@ var url_file_cnt = 1
 var triple_file_path = `./triple_${start}.txt`
 var f_triple = fs.openSync(triple_file_path, "a+")
 var triple_file_cnt = 1
+var f_record = "record"
+var f_record_cnt = 1
+var fd_record = fs.openSync(f_record + f_record_cnt, "a+")
 var total_size = parseInt(process.argv[3])
 var END_RID = start + total_size
 var black_key_list = ['undefined', '../', 'javascript:', 'mailto:']
 var batch = 10
 var batch_cnt = 0
+var ban_domain = {}
 
 Array.prototype.unique = function() {
     let table = {}
@@ -284,53 +288,67 @@ if (cluster.isMaster) {
                                             console.log("timeout")
                                             is_callback = 1
                                             await save_rec(record_db, save_data);
-                                            // await save_rec(record_db, save_data);
                                             inner_next(null)
                                         }
                                     }, 6000)
                                     async.each(current_batch, function(item, callback) {
                                         try {
+                                            let can_parse = 1
                                             let url = item.rec.url
-                                            fetch_url(url, async rst => {
-                                                if (rst.status) {
-                                                    let body = rst.msg
-                                                    let $ = cheerio.load(body)
-                                                    let data = {}
-                                                    data.title = $('title').text().trim()
-                                                    data.url = url
-                                                    data.UrlCode = md5(url)
-                                                    data.fetch_time = new Date()
-                                                    data.key_words = $('meta[name="keywords"]').attr("content")
-                                                    data.description = $('meta[name="description"]').attr("content");
-                                                    // $('script').remove()
-                                                    // $('style').remove()
-                                                    // $('noscript').remove()
-                                                    // $('*').each(function(idx, elem) {
-                                                    //     for (var key in elem.attribs) {
-                                                    //         if (key != 'id' && key != 'class') {
-                                                    //             $(this).removeAttr(key)
-                                                    //         }
-                                                    //     }
-                                                    // });
-                                                    data.domain = urL.parse(encodeURI(url.trim())).hostname
-                                                    data.domainCode = data.domain == null ? "" : md5(data.domain)
-                                                    let main_t = await GetMain.ParseHTML(body)
-                                                    data.mainText = main_t[1]
-                                                    let find_dns = await get_ip(data.domain)
-                                                    if (find_dns == "error") {
-                                                        data.host_ip = "404"
-                                                    } else {
-                                                        data.host_ip = find_dns
-                                                    }
-                                                    file_worker.send({ type: "url_in_body", url: data.url, body: body })
-                                                        // await save_rec(record_db, data);
-                                                    save_data.push(data)
-                                                        // save_rec(record_db, data)
-                                                    callback()
-                                                } else {
-                                                    callback()
+                                            let domain = urL.parse(encodeURI(url.trim())).hostname
+                                            if (typeof ban_domain[domain] != "undefined") {
+                                                if (ban_domain[domain] >= 10) {
+                                                    can_parse = 0
                                                 }
-                                            })
+                                            }
+                                            if (can_parse) {
+                                                fetch_url(url, async rst => {
+                                                    if (rst.status) {
+                                                        let body = rst.msg
+                                                        let $ = cheerio.load(body)
+                                                        let data = {}
+                                                        data.title = $('title').text().trim()
+                                                        data.url = url
+                                                        data.UrlCode = md5(url)
+                                                        data.fetch_time = new Date()
+                                                        data.key_words = $('meta[name="keywords"]').attr("content")
+                                                        data.description = $('meta[name="description"]').attr("content");
+                                                        data.domain = domain
+                                                        data.domainCode = data.domain == null ? "" : md5(data.domain)
+                                                        let main_t = await GetMain.ParseHTML(body)
+                                                        data.mainText = main_t[1]
+                                                        let find_dns = await get_ip(data.domain)
+                                                        if (find_dns == "error") {
+                                                            data.host_ip = "404"
+                                                        } else {
+                                                            data.host_ip = find_dns
+                                                        }
+                                                        file_worker.send({ type: "url_in_body", url: data.url, body: body })
+                                                            // await save_rec(record_db, data);
+                                                        save_data.push(data)
+                                                            // save_rec(record_db, data)
+                                                        callback()
+                                                    } else {
+                                                        // ETIMEDOUT
+                                                        // ESOCKETTIMEDOUT
+                                                        if (rst.msg == "ESOCKETTIMEDOUT" || rst.msg == "ETIMEDOUT") {
+                                                            if (typeof ban_domain[domain] != undefined) {
+                                                                ban_domain[domain]++
+                                                            } else {
+                                                                ban_domain[domain] = 1
+                                                            }
+                                                        }
+                                                        if (typeof ban_domain[domain] != undefined) {
+                                                            ban_domain[domain]++
+                                                        } else {
+                                                            ban_domain[domain] = 1
+                                                        }
+                                                        callback()
+                                                    }
+                                                })
+                                            } else {
+                                                callback()
+                                            }
                                         } catch (e) {
                                             callback()
                                         }
@@ -342,6 +360,7 @@ if (cluster.isMaster) {
                                             console.log("timeout")
                                             is_callback = 1
                                             await save_rec(record_db, save_data);
+                                            // file_worker.send({ type: "save_record", data: save_data })
                                             // await save_rec(record_db, save_data);
                                             inner_next(null)
                                         }

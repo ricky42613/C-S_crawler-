@@ -364,8 +364,8 @@ var promise = new Promise(async function(resolve, reject) {
                     let domainCode = domain == null ? "" : md5(domain)
                         // var rec_str = "";
                     let flag = 0
-                    if (typeof ban_domain != "undefined") {
-                        if (ban_domain[domain] > 5) {
+                    if (typeof ban_domain[domain] != "undefined") {
+                        if (ban_domain[domain] > 10) {
                             flag = 1
                         }
                     }
@@ -463,10 +463,12 @@ var promise = new Promise(async function(resolve, reject) {
                             } else {
                                 console.log(url)
                                 console.log(rsp_msg)
-                                if (domain in ban_domain) {
-                                    ban_domain[domain]++
-                                } else {
-                                    ban_domain[domain] = 1
+                                if (rsp_msg.msg == "ESOCKETTIMEDOUT" || rsp_msg.msg == "ETIMEDOUT") {
+                                    if (typeof ban_domain[domain] != undefined) {
+                                        ban_domain[domain]++
+                                    } else {
+                                        ban_domain[domain] = 1
+                                    }
                                 }
                                 cnt++
                                 fail++
