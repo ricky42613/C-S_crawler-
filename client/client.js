@@ -11,6 +11,7 @@ var dnscache = require('dnscache')({
 var cluster = require('cluster');
 // var memcached = require('memcached')
 // var cache = new memcached('localhost:8888')
+var ban_domain = {}
 var rec_file = "./rec" + process.pid
 var rec_file_cnt = 1
 var rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
@@ -362,107 +363,120 @@ var promise = new Promise(async function(resolve, reject) {
                     let domain = urL.parse(encodeURI(url.trim())).hostname
                     let domainCode = domain == null ? "" : md5(domain)
                         // var rec_str = "";
-                    fetch_url(url, async(rsp_msg) => {
-                        if (rsp_msg.status) {
-                            let body = rsp_msg.msg
-                            let $ = cheerio.load(body)
-                            let data = {}
-                            data.title = $('title').text().trim()
-                                // rec_str += `@title:${data.title}\n`
-                            data.url = url
-                                // rec_str += `@url:${data.url}\n`
-                            data.UrlCode = md5(url)
-                                // rec_str += `@UrlCode:${data.UrlCode}\n`
-                            data.fetch_time = new Date()
-                                // rec_str += `@fetch_time:${data.fetch_time}\n`
-                            data.key_words = $('meta[name="keywords"]').attr("content")
-                                // rec_str += `@key_words:${data.key_words}\n`
-                            data.description = $('meta[name="description"]').attr("content")
-                                // rec_str += `@description:${data.description}\n`
-                                // $('script').remove()
-                                // $('style').remove()
-                                // $('noscript').remove()
-                                // $('*').each(function(idx, elem) {
-                                //     for (var key in elem.attribs) {
-                                //         if (key != 'id' && key != 'class') {
-                                //             $(this).removeAttr(key)
-                                //         }
-                                //     }
-                                // });
-                            data.domain = domain
-                                // rec_str += `@domain:${data.domain}\n`
-                            data.domainCode = domainCode
-                                // rec_str += `@domainCode:${data.domainCode}\n`
-                            let main_t = await GetMain.ParseHTML(body)
-                                // data.mainText = main_t[1]
-                                // rec_str += `@mainText:${data.mainText}\n`;
-                            let find_dns = await get_ip(data.domain)
-                            if (find_dns == "error") {
-                                data.host_ip = "404"
-                            } else {
-                                data.host_ip = find_dns
-                            }
-                            // rec_str += `@host_ip:${data.host_ip}\n`
-                            // rec_str += `@body:${$('body').html().replace(/[\n|\t|\r]/g, "")}\n`
-                            // file_worker.send({ type: "write", content: rec_str })
-                            let urls_in_page = parse_url_in_body(data.url, body)
-                                // save_url = save_url.concat(urls_in_page.link_in_page)
-                            link_triples = link_triples.concat(urls_in_page.link_triples)
-                            update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time);
-                            // save_data.push(data);
-                            // console.log("start save")
-                            // console.time(`save ${url}`)
-                            // await save_rec(config.record_db, data)
-                            if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
-                                //file exists
-                                let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
-                                let fileSizeInBytes = stats["size"]
-                                if (fileSizeInBytes > 200000000) {
-                                    rec_file_cnt++
-                                    fs.closeSync(rec_fd)
-                                    rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+                    let flag = 0
+                    if (typeof ban_domain != "undefined") {
+                        if (ban_domain[domain] > 5) {
+                            flag = 1
+                        }
+                    }
+                    if (!flag) {
+                        fetch_url(url, async(rsp_msg) => {
+                            if (rsp_msg.status) {
+                                let body = rsp_msg.msg
+                                let $ = cheerio.load(body)
+                                let data = {}
+                                data.title = $('title').text().trim()
+                                    // rec_str += `@title:${data.title}\n`
+                                data.url = url
+                                    // rec_str += `@url:${data.url}\n`
+                                data.UrlCode = md5(url)
+                                    // rec_str += `@UrlCode:${data.UrlCode}\n`
+                                data.fetch_time = new Date()
+                                    // rec_str += `@fetch_time:${data.fetch_time}\n`
+                                data.key_words = $('meta[name="keywords"]').attr("content")
+                                    // rec_str += `@key_words:${data.key_words}\n`
+                                data.description = $('meta[name="description"]').attr("content")
+                                    // rec_str += `@description:${data.description}\n`
+                                    // $('script').remove()
+                                    // $('style').remove()
+                                    // $('noscript').remove()
+                                    // $('*').each(function(idx, elem) {
+                                    //     for (var key in elem.attribs) {
+                                    //         if (key != 'id' && key != 'class') {
+                                    //             $(this).removeAttr(key)
+                                    //         }
+                                    //     }
+                                    // });
+                                data.domain = domain
+                                    // rec_str += `@domain:${data.domain}\n`
+                                data.domainCode = domainCode
+                                    // rec_str += `@domainCode:${data.domainCode}\n`
+                                let main_t = await GetMain.ParseHTML(body)
+                                    // data.mainText = main_t[1]
+                                    // rec_str += `@mainText:${data.mainText}\n`;
+                                let find_dns = await get_ip(data.domain)
+                                if (find_dns == "error") {
+                                    data.host_ip = "404"
+                                } else {
+                                    data.host_ip = find_dns
                                 }
-                            }
-                            fs.write(rec_fd, JSON.stringify(data) + "\n", function(err) {
-                                if (err) {
-                                    console.log(err)
+                                // rec_str += `@host_ip:${data.host_ip}\n`
+                                // rec_str += `@body:${$('body').html().replace(/[\n|\t|\r]/g, "")}\n`
+                                // file_worker.send({ type: "write", content: rec_str })
+                                let urls_in_page = parse_url_in_body(data.url, body)
+                                    // save_url = save_url.concat(urls_in_page.link_in_page)
+                                link_triples = link_triples.concat(urls_in_page.link_triples)
+                                update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time);
+                                // save_data.push(data);
+                                // console.log("start save")
+                                // console.time(`save ${url}`)
+                                // await save_rec(config.record_db, data)
+                                if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
+                                    //file exists
+                                    let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
+                                    let fileSizeInBytes = stats["size"]
+                                    if (fileSizeInBytes > 200000000) {
+                                        rec_file_cnt++
+                                        fs.closeSync(rec_fd)
+                                        rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+                                    }
                                 }
+                                fs.write(rec_fd, JSON.stringify(data) + "\n", function(err) {
+                                    if (err) {
+                                        console.log(err)
+                                    }
+                                    cnt++
+                                    if (cnt == config.batch_size) {
+                                        cb_mid(null)
+                                        console.log("fail rate:" + fail / cnt)
+                                    }
+                                });
+                                // console.timeEnd(`save ${url}`)
+                            } else if (rsp_msg.msg == 'err') {
+                                // update_rec(md5(url), 'text', '@fetch:false')
+                                console.log(`${url}`)
+                                console.log(rsp_msg)
                                 cnt++
+                                fail++
                                 if (cnt == config.batch_size) {
                                     cb_mid(null)
                                     console.log("fail rate:" + fail / cnt)
                                 }
-                            });
-                            // console.timeEnd(`save ${url}`)
-                        } else if (rsp_msg.msg == 'err') {
-                            // update_rec(md5(url), 'text', '@fetch:false')
-                            console.log(`${url}`)
-                            console.log(rsp_msg)
-                            cnt++
-                            fail++
-                            if (cnt == config.batch_size) {
-                                cb_mid(null)
-                                console.log("fail rate:" + fail / cnt)
+                            } else if (rsp_msg.msg == 'break_url') {
+                                console.log(`${url} is broken`)
+                                cnt++
+                                fail++
+                                if (cnt == config.batch_size) {
+                                    cb_mid(null)
+                                    console.log("fail rate:" + fail / cnt)
+                                }
+                            } else {
+                                console.log(url)
+                                console.log(rsp_msg)
+                                if (domain in ban_domain) {
+                                    ban_domain[domain]++
+                                } else {
+                                    ban_domain[domain] = 1
+                                }
+                                cnt++
+                                fail++
+                                if (cnt == config.batch_size) {
+                                    cb_mid(null)
+                                    console.log("fail rate:" + fail / cnt)
+                                }
                             }
-                        } else if (rsp_msg.msg == 'break_url') {
-                            console.log(`${url} is broken`)
-                            cnt++
-                            fail++
-                            if (cnt == config.batch_size) {
-                                cb_mid(null)
-                                console.log("fail rate:" + fail / cnt)
-                            }
-                        } else {
-                            console.log(url)
-                            console.log(rsp_msg)
-                            cnt++
-                            fail++
-                            if (cnt == config.batch_size) {
-                                cb_mid(null)
-                                console.log("fail rate:" + fail / cnt)
-                            }
-                        }
-                    });
+                        });
+                    }
                 })
             },
             function(cb_mid2) {
