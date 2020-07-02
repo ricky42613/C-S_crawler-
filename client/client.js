@@ -244,12 +244,11 @@ function fetch_url(url, cb) {
                 } else if (r.statusCode.toString()[0] != 5 && r.statusCode.toString()[0] != 4) {
                     data.status = true
                     data.msg = r.body
-                    cb(data)
                 } else {
                     data.status = false
                     data.msg = r.statusCode.toString()
-                    cb(data)
                 }
+                cb(data)
             }
         })
     } catch (e) {
@@ -358,19 +357,22 @@ var promise = new Promise(async function(resolve, reject) {
                 console.log(`剩下${url_pool.length}個連結`)
                 let cnt = 0
                 let fail = 0
-                url_list.forEach(item => {
+                console.log(url_list)
+                async.each(url_list, function(item, next) {
+                    // url_list.forEach(item => {
                     let url = item.url
                     let domain = urL.parse(encodeURI(url.trim())).hostname
                     let domainCode = domain == null ? "" : md5(domain)
                         // var rec_str = "";
                     let flag = 0
                     if (typeof ban_domain[domain] != "undefined") {
-                        if (ban_domain[domain] > 10) {
+                        if (ban_domain[domain] > 5) {
                             flag = 1
                         }
                     }
                     if (!flag) {
                         fetch_url(url, async(rsp_msg) => {
+                            console.log("start fetch " + url + ":" + rsp_msg.status)
                             if (rsp_msg.status) {
                                 let body = rsp_msg.msg
                                 let $ = cheerio.load(body)
@@ -431,15 +433,17 @@ var promise = new Promise(async function(resolve, reject) {
                                         rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
                                     }
                                 }
+                                console.log("start write " + url)
                                 fs.write(rec_fd, JSON.stringify(data) + "\n", function(err) {
                                     if (err) {
                                         console.log(err)
                                     }
-                                    cnt++
-                                    if (cnt == config.batch_size) {
-                                        cb_mid(null)
-                                        console.log("fail rate:" + fail / cnt)
-                                    }
+                                    // cnt++
+                                    // if (cnt == url_list.length) {
+                                    //     console.log("fail rate:" + fail / cnt)
+                                    //     cb_mid(null)
+                                    // }
+                                    next()
                                 });
                                 // console.timeEnd(`save ${url}`)
                             } else if (rsp_msg.msg == 'err') {
@@ -448,37 +452,51 @@ var promise = new Promise(async function(resolve, reject) {
                                 console.log(rsp_msg)
                                 cnt++
                                 fail++
-                                if (cnt == config.batch_size) {
-                                    cb_mid(null)
-                                    console.log("fail rate:" + fail / cnt)
-                                }
+                                // if (cnt == url_list.length) {
+                                //     console.log("fail rate:" + fail / cnt)
+                                //     cb_mid(null)
+                                // }
+                                next()
                             } else if (rsp_msg.msg == 'break_url') {
                                 console.log(`${url} is broken`)
                                 cnt++
                                 fail++
-                                if (cnt == config.batch_size) {
-                                    cb_mid(null)
-                                    console.log("fail rate:" + fail / cnt)
-                                }
+                                // if (cnt == url_list.length) {
+                                //     console.log("fail rate:" + fail / cnt)
+                                //     cb_mid(null)
+                                // }
+                                next()
                             } else {
                                 console.log(url)
                                 console.log(rsp_msg)
-                                if (rsp_msg.msg == "ESOCKETTIMEDOUT" || rsp_msg.msg == "ETIMEDOUT") {
-                                    if (typeof ban_domain[domain] != undefined) {
+                                if (rsp_msg.msg.toString() == 'ESOCKETTIMEDOUT' || rsp_msg.msg.toString() == 'ETIMEDOUT') {
+                                    if (typeof ban_domain[domain] != "undefined") {
                                         ban_domain[domain]++
                                     } else {
                                         ban_domain[domain] = 1
                                     }
+                                    console.log(ban_domain)
                                 }
                                 cnt++
                                 fail++
-                                if (cnt == config.batch_size) {
-                                    cb_mid(null)
-                                    console.log("fail rate:" + fail / cnt)
-                                }
+                                // if (cnt == url_list.length) {
+                                //     console.log("fail rate:" + fail / cnt)
+                                //     cb_mid(null)
+                                // }
+                                next()
                             }
                         });
+                    } else {
+                        cnt++
+                        fail++
+                        console.log("ban " + url)
+                            // if (cnt == url_list.length) {
+                            //     console.log("fail rate:" + fail / cnt)
+                            //     cb_mid(null)
+                            // }
+                        next()
                     }
+                    // })
                 })
             },
             function(cb_mid2) {
@@ -500,9 +518,9 @@ var promise = new Promise(async function(resolve, reject) {
                         get_url_from_server(r => {
                             if (r.status) {
                                 if (r.pool.length) {
+                                    clearInterval(timer)
                                     url_pool = r.pool
                                     cb(null)
-                                    clearInterval(timer)
                                 }
                             } else {
                                 console.log(r.msg)
@@ -513,7 +531,9 @@ var promise = new Promise(async function(resolve, reject) {
                     cb(null)
                 }
             }
-        ])
+        ], function(err) {
+            console.log(err)
+        })
     }, function(err) {
         console.log('leave loop')
         console.log(err)

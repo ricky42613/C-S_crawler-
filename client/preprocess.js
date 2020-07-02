@@ -332,13 +332,13 @@ if (cluster.isMaster) {
                                                         // ETIMEDOUT
                                                         // ESOCKETTIMEDOUT
                                                         if (rst.msg == "ESOCKETTIMEDOUT" || rst.msg == "ETIMEDOUT") {
-                                                            if (typeof ban_domain[domain] != undefined) {
+                                                            if (typeof ban_domain[domain] != "undefined") {
                                                                 ban_domain[domain]++
                                                             } else {
                                                                 ban_domain[domain] = 1
                                                             }
                                                         }
-                                                        if (typeof ban_domain[domain] != undefined) {
+                                                        if (typeof ban_domain[domain] != "undefined") {
                                                             ban_domain[domain]++
                                                         } else {
                                                             ban_domain[domain] = 1
