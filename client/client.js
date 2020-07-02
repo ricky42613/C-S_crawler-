@@ -422,29 +422,30 @@ var promise = new Promise(async function(resolve, reject) {
                                 // save_data.push(data);
                                 // console.log("start save")
                                 // console.time(`save ${url}`)
-                                // await save_rec(config.record_db, data)
-                                if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
-                                    //file exists
-                                    let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
-                                    let fileSizeInBytes = stats["size"]
-                                    if (fileSizeInBytes > 200000000) {
-                                        rec_file_cnt++
-                                        fs.closeSync(rec_fd)
-                                        rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
-                                    }
-                                }
-                                console.log("start write " + url)
-                                fs.write(rec_fd, JSON.stringify(data) + "\n", function(err) {
-                                    if (err) {
-                                        console.log(err)
-                                    }
-                                    // cnt++
-                                    // if (cnt == url_list.length) {
-                                    //     console.log("fail rate:" + fail / cnt)
-                                    //     cb_mid(null)
-                                    // }
-                                    next()
-                                });
+                                await save_rec(config.record_db, data)
+                                next();
+                                // if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
+                                //     //file exists
+                                //     let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
+                                //     let fileSizeInBytes = stats["size"]
+                                //     if (fileSizeInBytes > 200000000) {
+                                //         rec_file_cnt++
+                                //         fs.closeSync(rec_fd)
+                                //         rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
+                                //     }
+                                // }
+                                // console.log("start write " + url)
+                                // fs.write(rec_fd, JSON.stringify(data) + "\n", function(err) {
+                                //     if (err) {
+                                //         console.log(err)
+                                //     }
+                                //     // cnt++
+                                //     // if (cnt == url_list.length) {
+                                //     //     console.log("fail rate:" + fail / cnt)
+                                //     //     cb_mid(null)
+                                //     // }
+                                //     next()
+                                // });
                                 // console.timeEnd(`save ${url}`)
                             } else if (rsp_msg.msg == 'err') {
                                 // update_rec(md5(url), 'text', '@fetch:false')
