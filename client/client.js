@@ -345,7 +345,6 @@ var promise = new Promise(async function(resolve, reject) {
         }, config.wait_pool_fill);
     })
 }).then(() => {
-    let save_data = []
     let save_url = []
     let link_triples = []
     let pat_table = {}
@@ -355,15 +354,10 @@ var promise = new Promise(async function(resolve, reject) {
                 console.log(`原有${url_pool.length}個連結`)
                 let url_list = url_pool.splice(0, config.batch_size)
                 console.log(`剩下${url_pool.length}個連結`)
-                let cnt = 0
-                let fail = 0
-                console.log(url_list)
                 async.each(url_list, function(item, next) {
-                    // url_list.forEach(item => {
                     let url = item.url
                     let domain = urL.parse(encodeURI(url.trim())).hostname
                     let domainCode = domain == null ? "" : md5(domain)
-                        // var rec_str = "";
                     let flag = 0
                     if (typeof ban_domain[domain] != "undefined") {
                         if (ban_domain[domain] > 5) {
@@ -388,88 +382,30 @@ var promise = new Promise(async function(resolve, reject) {
                                 data.key_words = $('meta[name="keywords"]').attr("content")
                                     // rec_str += `@key_words:${data.key_words}\n`
                                 data.description = $('meta[name="description"]').attr("content")
-                                    // rec_str += `@description:${data.description}\n`
-                                    // $('script').remove()
-                                    // $('style').remove()
-                                    // $('noscript').remove()
-                                    // $('*').each(function(idx, elem) {
-                                    //     for (var key in elem.attribs) {
-                                    //         if (key != 'id' && key != 'class') {
-                                    //             $(this).removeAttr(key)
-                                    //         }
-                                    //     }
-                                    // });
                                 data.domain = domain
                                     // rec_str += `@domain:${data.domain}\n`
                                 data.domainCode = domainCode
                                     // rec_str += `@domainCode:${data.domainCode}\n`
                                 let main_t = await GetMain.ParseHTML(body)
-                                    // data.mainText = main_t[1]
-                                    // rec_str += `@mainText:${data.mainText}\n`;
                                 let find_dns = await get_ip(data.domain)
                                 if (find_dns == "error") {
                                     data.host_ip = "404"
                                 } else {
                                     data.host_ip = find_dns
                                 }
-                                // rec_str += `@host_ip:${data.host_ip}\n`
-                                // rec_str += `@body:${$('body').html().replace(/[\n|\t|\r]/g, "")}\n`
-                                // file_worker.send({ type: "write", content: rec_str })
                                 let urls_in_page = parse_url_in_body(data.url, body)
-                                    // save_url = save_url.concat(urls_in_page.link_in_page)
                                 link_triples = link_triples.concat(urls_in_page.link_triples)
                                 update_rec(data.UrlCode, 'text', '@fetch_time' + data.fetch_time);
-                                // save_data.push(data);
-                                // console.log("start save")
-                                // console.time(`save ${url}`)
                                 await save_rec(config.record_db, data)
                                 next();
-                                // if (fs.existsSync(`${rec_file}${rec_file_cnt}`)) {
-                                //     //file exists
-                                //     let stats = fs.statSync(`${rec_file}${rec_file_cnt}`)
-                                //     let fileSizeInBytes = stats["size"]
-                                //     if (fileSizeInBytes > 200000000) {
-                                //         rec_file_cnt++
-                                //         fs.closeSync(rec_fd)
-                                //         rec_fd = fs.openSync(`${rec_file}${rec_file_cnt}`, "a+")
-                                //     }
-                                // }
-                                // console.log("start write " + url)
-                                // fs.write(rec_fd, JSON.stringify(data) + "\n", function(err) {
-                                //     if (err) {
-                                //         console.log(err)
-                                //     }
-                                //     // cnt++
-                                //     // if (cnt == url_list.length) {
-                                //     //     console.log("fail rate:" + fail / cnt)
-                                //     //     cb_mid(null)
-                                //     // }
-                                //     next()
-                                // });
-                                // console.timeEnd(`save ${url}`)
                             } else if (rsp_msg.msg == 'err') {
-                                // update_rec(md5(url), 'text', '@fetch:false')
-                                console.log(`${url}`)
-                                console.log(rsp_msg)
-                                cnt++
-                                fail++
-                                // if (cnt == url_list.length) {
-                                //     console.log("fail rate:" + fail / cnt)
-                                //     cb_mid(null)
-                                // }
                                 next()
                             } else if (rsp_msg.msg == 'break_url') {
                                 console.log(`${url} is broken`)
-                                cnt++
-                                fail++
-                                // if (cnt == url_list.length) {
-                                //     console.log("fail rate:" + fail / cnt)
-                                //     cb_mid(null)
-                                // }
                                 next()
                             } else {
                                 console.log(url)
-                                console.log(rsp_msg)
+                                console.log(rsp_msg.msg)
                                 if (rsp_msg.msg.toString() == 'ESOCKETTIMEDOUT' || rsp_msg.msg.toString() == 'ETIMEDOUT') {
                                     if (typeof ban_domain[domain] != "undefined") {
                                         ban_domain[domain]++
@@ -478,40 +414,22 @@ var promise = new Promise(async function(resolve, reject) {
                                     }
                                     console.log(ban_domain)
                                 }
-                                cnt++
-                                fail++
-                                // if (cnt == url_list.length) {
-                                //     console.log("fail rate:" + fail / cnt)
-                                //     cb_mid(null)
-                                // }
                                 next()
                             }
                         });
                     } else {
-                        cnt++
-                        fail++
-                        console.log("ban " + url)
-                            // if (cnt == url_list.length) {
-                            //     console.log("fail rate:" + fail / cnt)
-                            //     cb_mid(null)
-                            // }
                         next()
                     }
-                    // })
+                }, function(err) {
+                    if (err) {
+                        console.log(err)
+                    } else {
+                        cb_mid(null)
+                    }
                 })
             },
             function(cb_mid2) {
-                // if (link_triples.length) {
-                //     save_rec(config.triple_db, link_triples)
-                // }
-                save_data = []
                 link_triples = []
-                save_url = save_url.unique()
-                console.log(save_url)
-                    // if (save_url.length) {
-                    //     url_back2server(save_url)
-                    // }
-                    // save_url = []
                 if (url_pool.length == 0) {
                     pat_table = {}
                     console.log('pool已空，向server請求連結')
