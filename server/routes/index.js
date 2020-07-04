@@ -256,60 +256,26 @@ router.get('/add_client', function(req, res, next) {
 
 router.get('/get_url', async function(req, res, next) {
     var size = parseInt(req.query.size).toString() == "NaN" ? 1000 : parseInt(req.query.size)
-    var user = req.query.user
-        // var space = await get_space_from_cache(user)
-        // if (space == -1) {
-        //     res.json({
-        //         status: false,
-        //         msg: '超過請求限制'
-        //     })
-        // } else {
     if (size > 1000) {
         res.json({
             status: false,
             msg: "每次限取1000筆"
         })
     } else {
-        // cache.set(`${user}${space}`, 'true', cache_lifetime, function(err) {
-        //     if (err) {
-        //         console.log(err)
-        //         res.json({
-        //             status: false,
-        //             msg: err
-        //         })
-        //     } else {
         let data = {}
         data.status = true
-            // let location = -1
-            // req.app.locals.client_list.forEach((item, idx) => {
-            //     if (item.id == user) {
-            //         location = idx * size
-            //     }
-            // })
-            // req.app.locals.client_list[location / size].last_time = new Date()
-            // if (location == -1) {
-            //     res.json({
-            //         status: false,
-            //         msg: '使用者已消失'
-            //     })
-            // } else {
         data.url_list = req.app.locals.link_pool.splice(0, size)
         if (data.url_list.length) {
             console.log(`pool原長度${req.app.locals.link_pool.length}`)
             console.log(`pool切割後長度${req.app.locals.link_pool.length}`)
             res.json(data)
         } else {
-            console.log(`使用者位於${location}`)
             res.json({
                 status: false,
                 msg: 'queue已空'
             })
         }
-        // }
-        //     }
-        // })
     }
-    // }
 })
 
 router.get('/add_seed', async function(req, res, next) {
