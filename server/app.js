@@ -5,12 +5,11 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var GAIS = require('../gais_api/gais')
 var async = require('async')
+var fs = require('fs')
+var md5 = require("md5")
 var config = {
     db_location: "onlybtw.ddns.net:5802",
-    pool_db: "dict_pool",
-    record: "record3",
-    pattern_db: "pattern",
-    src_link_cntdb: "src_ave_link",
+    pool_db: "wns_url",
     black_list: ['undefined', '../', 'javascript:', 'mailto:']
 }
 var DB = new GAIS(config.db_location)
@@ -33,7 +32,6 @@ var app = express();
 
 app.locals.parse_config = config
 app.locals.link_pool = []
-app.locals.client_list = []
 var total_pool_len = 50000
 var shutdown_signal = false
 
@@ -52,29 +50,29 @@ function update_rec(key, format, rec) {
     })
 }
 
-function shutdown() {
-    shutdown_signal = true
-    let cnt = 0
-    console.log(`返還${app.locals.link_pool.length}個連結`)
-    async.eachLimit(app.locals.link_pool, 20, function(item, cb) {
-        (async function() {
-            await update_rec(item.UrlCode, 'text', '@fetch:false')
-            cnt++
-            if (cnt % 100 == 0) {
-                console.log(`已更新${cnt}個url`)
-            }
-            cb()
-        })()
-    }, function(err) {
-        if (err) {
-            console.log(err)
-        }
-        process.exit()
-    })
-}
+// function shutdown() {
+//     shutdown_signal = true
+//     let cnt = 0
+//     console.log(`返還${app.locals.link_pool.length}個連結`)
+//     async.eachLimit(app.locals.link_pool, 20, function(item, cb) {
+//         (async function() {
+//             await update_rec(item.UrlCode, 'text', '@fetch:false')
+//             cnt++
+//             if (cnt % 100 == 0) {
+//                 console.log(`已更新${cnt}個url`)
+//             }
+//             cb()
+//         })()
+//     }, function(err) {
+//         if (err) {
+//             console.log(err)
+//         }
+//         process.exit()
+//     })
+// }
 
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
+// process.on('SIGINT', shutdown)
+// process.on('SIGTERM', shutdown)
 
 function getRandom(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -102,25 +100,25 @@ async function get_from_pool(skip) {
             });
             app.locals.link_pool = app.locals.link_pool.concat(rsp)
             app.locals.link_pool = app.locals.link_pool.unique()
-            console.log("取回link record，目前池裡共" + app.locals.link_pool.length + "筆")
-            if (rsp.length) {
-                let cnt = 0
-                async.eachLimit(rsp, 30, function(item, cb) {
-                    (async function() {
-                        await update_rec(item.UrlCode, 'text', '@fetch:true')
-                        cnt++
-                        if (cnt % 100 == 0) {
-                            console.log(`已更新${cnt}個url`)
-                        }
-                        cb()
-                    })()
-                }, function(err) {
-                    if (err) {
-                        console.log(err)
-                    }
-                    console.log('已更新取回url')
-                })
-            }
+            console.log("取回link record，目前池裡共" + app.locals.link_pool.length + "筆");
+            // if (rsp.length) {
+            //     let cnt = 0
+            //     async.eachLimit(rsp, 30, function(item, cb) {
+            //         (async function() {
+            //             // await update_rec(item.UrlCode, 'text', '@fetch:true')
+            //             cnt++
+            //             if (cnt % 100 == 0) {
+            //                 console.log(`已更新${cnt}個url`)
+            //             }
+            //             cb()
+            //         })()
+            //     }, function(err) {
+            //         if (err) {
+            //             console.log(err)
+            //         }
+            //         console.log('已更新取回url')
+            //     })
+            // }
         }
     } //get url per 5 minutes
 }

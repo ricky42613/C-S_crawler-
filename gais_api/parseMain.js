@@ -32,8 +32,8 @@ function get_main_text(body) {
                             return this.type === 'text'
                         }).each((idx, inneritem2) => {
                             // if ($(inneritem2).text().length > 6) {
-                            maintext = maintext + $(inneritem2).text().trim().replace(/[\n|\t|\r|\s]/g, "")
-                            score = score + $(inneritem2).text().trim().replace(/[\n|\t|\r|\s]/g, "").length * weight_table['div']
+                            maintext = maintext + $(inneritem2).text().trim().replace(/[\n|\t|\r]/g, "")
+                            score = score + $(inneritem2).text().trim().replace(/[\n|\t|\r]/g, "").length * weight_table['div']
                                 // }
                         })
                     })
@@ -50,7 +50,7 @@ function get_main_text(body) {
                             return this.type === 'text'
                         }).each((idx, inner_item2) => {
                             if ($(inner_item2).text().length) {
-                                let gettext = $(inner_item2).text().trim().replace(/[\n|\t|\r|\s]/g, "")
+                                let gettext = $(inner_item2).text().trim().replace(/[\n|\t|\r]/g, "")
                                 maintext = maintext + gettext
                                 let tagName = $(inner_item)[0].tagName.toLowerCase()
                                 let coef = weight_table[tagName] == undefined ? 1 : weight_table[tagName]
@@ -79,7 +79,7 @@ function get_main_text(body) {
                             $(item).text(link_text)
                         }
                     })
-                    Maintext = $(mainblock).text().replace(/\$link\$/g, "<linktext>").replace(/\$\/link\$/g, "</linktext>").replace(/[\r|\n|\t|\s]/g, "")
+                    Maintext = $(mainblock).text().replace(/\$link\$/g, "<linktext>").replace(/\$\/link\$/g, "</linktext>").replace(/[\r|\n|\t]/g, "")
                     resolve([mainblock, Maintext])
                 }
             },
@@ -95,7 +95,7 @@ function get_main_text(body) {
                     })
                 })
                 $(text_tag.join(',')).get().forEach(item => {
-                    Maintext = Maintext + $(item).text().trim().replace(/[\r|\n|\t|\s]/g, "")
+                    Maintext = Maintext + $(item).text().trim().replace(/[\r|\n|\t]/g, "")
                 })
                 if (Maintext.length < 40) {
                     callback(null)
@@ -104,7 +104,7 @@ function get_main_text(body) {
                 }
             },
             function(callback) {
-                Maintext = $('body').text().trim().replace(/[\r|\n|\t|\s]/g, "")
+                Maintext = $('body').text().trim().replace(/[\r|\n|\t]/g, "")
                 resolve(['null', Maintext])
             }
         ])
