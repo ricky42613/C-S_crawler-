@@ -46,7 +46,6 @@ function get_url_from_server(cb) {
     }, function(e, r, b) {
         if (e) {
             let data = {}
-            console.log(e)
             data.status = false
             data.msg = e
             cb(data)
@@ -209,7 +208,6 @@ function save_rec(db, data) {
     return new Promise(async function(resolve, reject) {
         let r = await DB.insert(db, data)
         if (!r.status) {
-            console.log(r)
             setTimeout(async function() {
                 await save_rec(db, data)
                 resolve()
@@ -271,21 +269,18 @@ var promise = new Promise(async function(resolve, reject) {
                                     rec_str += `@domain:${domain}\n`
                                     let main_content = await GetMain.ParseHTML(body)
                                     rec_str += `@main_content:${main_content[1]}`
-                                    console.log(rec_str);
-                                    //save record
+                                        //save record
                                     fs.appendFileSync("record", rec_str)
                                     let page_url_info = parse_url_in_body(url, body)
                                     if (page_url_info.link_triples.length) {
                                         fs.appendFileSync("linktriple", page_url_info.link_triples.join("\n")) // save new link triples
                                     }
                                     if (page_url_info.new_links.length) {
-                                        console.log(page_url_info.new_links);
                                         await save_rec(config.extend_pool_db, page_url_info.new_links)
                                     }
                                     await update_rec(item.UrlCode, 'text', `@fetch_time:${current_time},@fetch:true`);
                                     inner_callback()
                                 } else {
-                                    console.log(rsp.msg)
                                     if (typeof rsp.msg == "undefined") {
                                         rsp.msg = "err"
                                     }
@@ -300,7 +295,6 @@ var promise = new Promise(async function(resolve, reject) {
                             if (err) {
                                 console.log(err)
                             }
-                            console.log('leave each')
                             callback(null)
                         })
                     } else {
