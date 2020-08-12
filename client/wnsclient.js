@@ -16,6 +16,7 @@ var md5 = require('md5')
 var config = {
     machine: "onlybtw.ddns.net:5802",
     server: "http://127.0.0.1:3080",
+    pool_db: "wns_url",
     extend_pool_db: "wns_url_extend",
     pool_size: 1000,
     batch_size: 30,
