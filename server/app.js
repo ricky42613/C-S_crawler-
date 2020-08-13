@@ -77,10 +77,16 @@ function update_rec(key, format, rec) {
 function getRandom(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 };
+
+var round = 1;
 async function get_from_pool(skip) {
     var ps = total_pool_len - app.locals.link_pool.length
     if (skip == -1) {
-        skip = getRandom(1, 10)
+        skip = round
+        round += 1
+        if (round > 10) {
+            round = 1
+        }
     }
     console.log("開始檢查pool")
     if (ps > 0 && !shutdown_signal) {
