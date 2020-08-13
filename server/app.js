@@ -9,7 +9,7 @@ var fs = require('fs')
 var md5 = require("md5")
 var config = {
     db_location: "onlybtw.ddns.net:5802",
-    pool_db: "wns_url",
+    pool_db: "wns_url_extend",
     black_list: ['undefined', '../', 'javascript:', 'mailto:']
 }
 var DB = new GAIS(config.db_location)
