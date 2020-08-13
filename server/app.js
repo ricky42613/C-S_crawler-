@@ -96,6 +96,9 @@ async function get_from_pool(skip) {
             rsp.data.result.recs = rsp.data.result.recs.filter(item => {
                 return !item.hasOwnProperty('error')
             })
+            if (rsp.data.result.recs.length == 0) {
+                round = 1
+            }
             rsp = rsp.data.result.recs.slice(0, ps).map(item => {
                 return item.rec
             })
