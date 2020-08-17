@@ -83,9 +83,7 @@ function readFromN2M(filename, n, m) {
 
 async function get_from_file() {
     await get_file_idx()
-    console.log(app.locals.parse_config.file_idx)
     let size = total_pool_len - app.locals.link_pool.length
-    console.log(app.locals.parse_config.file_idx)
     if (size) {
         let line_data = await readFromN2M(app.locals.parse_config.pool_file, app.locals.parse_config.file_idx, app.locals.parse_config.file_idx + size);
         app.locals.parse_config.file_idx += line_data.length

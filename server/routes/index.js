@@ -67,13 +67,10 @@ router.post('/url_recycle', function(req, res, next) {
         });
         // new_url_list = new_url_list.shuffle()
         if (new_url_list.length) {
-            console.log("write file")
             let str = ""
             new_url_list.forEach(item => {
                 str += '@url:' + item + '\n'
             })
-            console.log(str)
-            console.log(req.app.locals.parse_config.pool_file)
             fs.appendFile(req.app.locals.parse_config.pool_file, str, function(err) {
                 if (err) {
                     console.log(err)
