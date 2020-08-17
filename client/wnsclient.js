@@ -153,14 +153,14 @@ function parse_url_in_body(url, body) {
                 data.url = data.url.slice(0, idx)
             }
             data.url = encodeURI(data.url)
-            data.fetch = "false"
-            data.fetch_time = "--"
+                // data.fetch = "false"
+                // data.fetch_time = "--"
             data.link_text = $(item).text().replace(/[\n|\t|\r|\s]/g, "")
-            if (data.link_text.length == 0) {
-                data.link_text = "no text"
-            }
+                // if (data.link_text.length == 0) {
+                //     data.link_text = "no text"
+                // }
             data.UrlCode = md5(data.url)
-            data.domain = main_url.hostname
+                // data.domain = main_url.hostname
         } else {
             data.url = "undefined"
         }
@@ -172,6 +172,8 @@ function parse_url_in_body(url, body) {
     })
     let new_links = links_in_page.filter(item => {
         return filter_domain(item.url, main_url.hostname)
+    }).map(item => {
+        return item.url
     })
     let link_triples = links_in_page.filter(item => {
         return !filter_domain(item.url, main_url.hostname)
@@ -219,6 +221,22 @@ function save_rec(db, data) {
     })
 }
 
+function return_urls(data) {
+    return new Promise(function(resolve, reject) {
+        request.post({
+            url: `${config.server}/url_recycle`,
+            form: { data: JSON.stringify(data.slice(0, 1000)) }
+        }, function(e, r, b) {
+            if (e) {
+                console.log(e)
+                resolve()
+            } else {
+                resolve()
+            }
+        })
+    })
+}
+
 var promise = new Promise(async function(resolve, reject) {
     let timer = setInterval(() => {
         get_url_from_server(r => {
@@ -245,7 +263,7 @@ var promise = new Promise(async function(resolve, reject) {
                         let url_list = url_pool.splice(0, config.batch_size)
                         console.log(`處理${url_list.length}筆資料`)
                         async.each(url_list, function(item, inner_callback) {
-                            let url = item.url
+                            let url = item
                             fetch_url(url, async function(rsp) {
                                 if (rsp.status) {
                                     let rec_str = ""
@@ -277,17 +295,18 @@ var promise = new Promise(async function(resolve, reject) {
                                         fs.appendFileSync("linktriple", page_url_info.link_triples.join("\n")) // save new link triples
                                     }
                                     if (page_url_info.new_links.length) {
-                                        await save_rec(config.extend_pool_db, page_url_info.new_links)
+                                        // await save_rec(config.extend_pool_db, page_url_info.new_links)
+                                        await return_urls(page_url_info.new_links)
                                     }
-                                    await update_rec(item.UrlCode, 'text', `@fetch_time:${current_time},@fetch:true`);
+                                    // await update_rec(item.UrlCode, 'text', `@fetch_time:${current_time},@fetch:true`);
                                     inner_callback()
                                 } else {
                                     if (typeof rsp.msg == "undefined") {
                                         rsp.msg = "err"
                                     }
                                     if (rsp.msg.toString() != "ETIMEDOUT" && rsp.msg.toString() != "ESOCKETTIMEDOUT") {
-                                        let current_time = new Date()
-                                        await update_rec(item.UrlCode, 'text', `@fetch_time:${current_time},@fetch:true`);
+                                        // let current_time = new Date()
+                                        // await update_rec(item.UrlCode, 'text', `@fetch_time:${current_time},@fetch:true`);
                                     }
                                     inner_callback()
                                 }

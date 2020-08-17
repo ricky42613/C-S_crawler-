@@ -1,16 +1,7 @@
 var express = require('express');
 var router = express.Router();
-// var memcached = require('memcached')
-// var cache = new memcached('localhost:8787')
+var fs = require('fs')
 var md5 = require('md5')
-var async = require('async')
-var urL = require('url')
-var GetMain = require('../../gais_api/parseMain')
-var GAIS = require('../../gais_api/gais')
-var request = require('request')
-var cheerio = require('cheerio')
-const max_req = 10;
-// const cache_lifetime = 60
 
 Array.prototype.unique = function() {
     let table = {}
@@ -33,34 +24,6 @@ Array.prototype.shuffle = function() {
         this[j] = x;
     }
     return this;
-}
-
-function update_rec(db, key, format, rec) {
-    return new Promise(async function(resolve, reject) {
-        let r = await DB.update(db, { key: key }, format, rec)
-        if (!r.status) {
-            setTimeout(async function() {
-                await update_rec(db, key, format, rec)
-                resolve()
-            }, 1000)
-        } else {
-            resolve()
-        }
-    })
-}
-
-function save_rec(db, data) {
-    return new Promise(async function(resolve, reject) {
-        let r = await DB.insert(db, data)
-        if (!r.status) {
-            setTimeout(async function() {
-                await save_rec(db, data)
-                resolve()
-            }, 1000)
-        } else {
-            resolve()
-        }
-    })
 }
 
 router.get('/', function(req, res, next) {
@@ -94,16 +57,32 @@ router.get('/get_url', async function(req, res, next) {
 router.post('/url_recycle', function(req, res, next) {
     try {
         let url_list = JSON.parse(req.body.data)
-        new_url_list = url_list.shuffle()
-        let diff_cnt = 0
-        for (let i = 0; i < url_list.length; i++) {
-            if (new_url_list[i] != url_list[i]) {
-                diff_cnt++
+        let new_url_list = []
+        url_list.forEach(item => {
+            let check_item = new Buffer(md5(item), 'hex')
+            if (!req.app.locals.filter.contains(check_item)) {
+                req.app.locals.filter.insert(check_item)
+                new_url_list.push(item)
             }
+        });
+        // new_url_list = new_url_list.shuffle()
+        if (new_url_list.length) {
+            console.log("write file")
+            let str = ""
+            new_url_list.forEach(item => {
+                str += '@url:' + item + '\n'
+            })
+            console.log(str)
+            console.log(req.app.locals.parse_config.pool_file)
+            fs.appendFile(req.app.locals.parse_config.pool_file, str, function(err) {
+                if (err) {
+                    console.log(err)
+                }
+                res.json({ status: true })
+            })
+        } else {
+            res.json({ status: true })
         }
-        console.log(`diffenent rate:${diff_cnt/url_list.length}`)
-        save_rec(req.app.locals.parse_config.pool_db, new_url_list)
-        res.json({ status: true })
     } catch (e) {
         console.log(e)
         res.json({
