@@ -5,13 +5,12 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var GAIS = require('../gais_api/gais')
 var fs = require('fs')
-var BloomFilter = require('bloom-filter');
 var fs = require('fs');
 var readline = require('readline');
-var md5 = require('md5')
 
 var config = {
     db_location: "onlybtw.ddns.net:5802",
+    url_checker: "http://127.0.0.1:8080",
     pool_db: "wns_url_extend",
     black_list: ['undefined', '../', 'javascript:', 'mailto:'],
     pool_file: "./url_pools.txt",
@@ -37,11 +36,7 @@ var app = express();
 
 app.locals.parse_config = config
 app.locals.link_pool = []
-let bloom_item_cnt = 17199254740991
-var falsePositiveRate = 0.01;
-app.locals.filter = BloomFilter.create(bloom_item_cnt, falsePositiveRate);
 var total_pool_len = 50000
-var shutdown_signal = false
 
 
 function update_rec(key, format, rec) {
@@ -175,23 +170,6 @@ function get_file_idx() {
     })
 }
 
-function init(filename) {
-    const lineReader = readline.createInterface({
-        input: fs.createReadStream(filename),
-    });
-    lineReader.on('line', function(line) {
-        let check_item = new Buffer(md5(line.slice(5)), 'hex')
-        if (!app.locals.filter.contains(check_item)) {
-            app.locals.filter.insert(check_item)
-        }
-    });
-    lineReader.on('close', function() {
-        console.log("finish")
-    })
-}
-
-// get_from_pool(1)
-init(app.locals.parse_config.pool_file)
 get_from_file()
 setInterval(get_from_file, 60 * 1000);
 // setInterval(get_from_pool, 60 * 1000, -1)
