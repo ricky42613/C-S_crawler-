@@ -296,7 +296,7 @@ var promise = new Promise(async function(resolve, reject) {
                                     }
                                     if (page_url_info.new_links.length) {
                                         // await save_rec(config.extend_pool_db, page_url_info.new_links)
-                                        await return_urls(page_url_info.new_links)
+                                        return_urls(page_url_info.new_links)
                                     }
                                     // await update_rec(item.UrlCode, 'text', `@fetch_time:${current_time},@fetch:true`);
                                     inner_callback()

@@ -7,6 +7,7 @@ var GAIS = require('../gais_api/gais')
 var fs = require('fs')
 var fs = require('fs');
 var readline = require('readline');
+var request = require('request')
 
 var config = {
     db_location: "onlybtw.ddns.net:5802",
@@ -36,6 +37,7 @@ var app = express();
 
 app.locals.parse_config = config
 app.locals.link_pool = []
+app.locals.pending_pool = []
 var total_pool_len = 50000
 
 
@@ -172,7 +174,60 @@ function get_file_idx() {
 
 get_from_file()
 setInterval(get_from_file, 60 * 1000);
-// setInterval(get_from_pool, 60 * 1000, -1)
+
+function check_list(url_checker, url_list, i) {
+    return new Promise(function(resolve, reject) {
+        request({
+            url: `${url_checker}/check?query=${md5(url_list[i])}&is_md5=true`,
+            method: 'GET'
+        }, async function(e, r, b) {
+            if (e) {
+                console.log(e)
+                i++
+                if (i == url_list.length) {
+                    resolve([])
+                } else {
+                    var next_url_list = await check_list(url_checker, url_list, i)
+                    resolve(new_url_list)
+                }
+            } else {
+                var new_url_list = []
+                if (r.body == "false") {
+                    new_url_list.push(url_list[i])
+                }
+                i++
+                if (i == url_list.length) {
+                    resolve(new_url_list)
+                } else {
+                    var next_url_list = await check_list(url_checker, url_list, i)
+                    new_url_list = new_url_list.concat(next_url_list)
+                    resolve(new_url_list)
+                }
+            }
+        })
+    })
+}
+
+setInterval(function() {
+    let urls = app.locals.pending_pool.splice(0, 1000)
+    if (urls.length) {
+        request.post({
+            url: config.url_checker + "/check_list",
+            body: urls.join("\n")
+        }, function(e, r, b) {
+            if (e) {
+                console.log(e)
+            } else {
+                console.log(r.body)
+                fs.appendFile(app.locals.parse_config.pool_file, r.body, function(err) {
+                    if (err) {
+                        console.log(err)
+                    }
+                })
+            }
+        })
+    }
+}, 500)
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
