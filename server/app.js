@@ -5,9 +5,7 @@ var cookieParser = require('cookie-parser');
 var logger = require('morgan');
 var GAIS = require('../gais_api/gais')
 var fs = require('fs')
-var fs = require('fs');
-var readline = require('readline');
-var request = require('request')
+var readline = require('readline')
 
 var config = {
     db_location: "onlybtw.ddns.net:5802",
