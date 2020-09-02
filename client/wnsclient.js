@@ -16,6 +16,7 @@ var md5 = require('md5')
 var config = {
     machine: "onlybtw.ddns.net:5802",
     server: "http://127.0.0.1:3080",
+    seen_server: "http://127.0.0.1:3081",
     pool_db: "wns_url_extend",
     extend_pool_db: "wns_url_extend",
     pool_size: 1000,
@@ -207,24 +208,10 @@ function update_rec(key, format, rec) {
     })
 }
 
-function save_rec(db, data) {
-    return new Promise(async function(resolve, reject) {
-        let r = await DB.insert(db, data)
-        if (!r.status) {
-            setTimeout(async function() {
-                await save_rec(db, data)
-                resolve()
-            }, 1000)
-        } else {
-            resolve()
-        }
-    })
-}
-
 function return_urls(data) {
     return new Promise(function(resolve, reject) {
         request.post({
-            url: `${config.server}/url_recycle`,
+            url: `${config.seen_server}/url_recycle`,
             form: { data: JSON.stringify(data.slice(0, 1000)) }
         }, function(e, r, b) {
             if (e) {

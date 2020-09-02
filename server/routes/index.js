@@ -56,34 +56,4 @@ router.get('/get_url', async function(req, res, next) {
     }
 })
 
-router.post('/url_recycle', async function(req, res, next) {
-    // try {
-    let url_list = JSON.parse(req.body.data)
-    req.app.locals.pending_pool = req.app.locals.pending_pool.concat(url_list);
-    // let new_url_list = await check_list(req.app.locals.parse_config.url_checker, url_list, 0)
-    // console.log(new_url_list);
-    // new_url_list = new_url_list.shuffle()
-    // if (new_url_list.length) {
-    //     let str = ""
-    //     new_url_list.forEach(item => {
-    //         str += '@url:' + item + '\n'
-    //     })
-    //     fs.appendFile(req.app.locals.parse_config.pool_file, str, function(err) {
-    //         if (err) {
-    //             console.log(err)
-    //         }
-    res.json({ status: true });
-    //     })
-    // } else {
-    //     res.json({ status: true })
-    // }
-    // } catch (e) {
-    //     console.log(e)
-    //     res.json({
-    //         status: false,
-    //         msg: e
-    //     })
-    // }
-})
-
 module.exports = router;
