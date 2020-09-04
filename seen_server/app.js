@@ -41,32 +41,31 @@ function readFromN2M(filename, n, m) {
     })
 };
 
-// function get_file_idx() {
-//     return new Promise(function(resolve, reject) {
-//         if (fs.existsSync("./config")) {
-//             fs.readFile("./config", (err, txt) => {
-//                 if (err) {
-//                     console.log(err)
-//                 } else {
-//                     app.locals.parse_config.file_idx = parseInt(txt)
-//                 }
-//                 resolve()
-//             })
-//         } else {
-//             resolve()
-//         }
-//     })
-// }
+function get_file_idx() {
+    return new Promise(function(resolve, reject) {
+        if (fs.existsSync("./config")) {
+            fs.readFile("./config", (err, txt) => {
+                if (err) {
+                    console.log(err)
+                } else {
+                    app.locals.parse_config.file_idx = parseInt(txt)
+                }
+                resolve()
+            })
+        } else {
+            resolve()
+        }
+    })
+}
 
 function get_from_file() {
     return new Promise(async function(resolve, reject) {
         if (fs.existsSync(app.locals.pending_file)) {
-            // await get_file_idx()
-            let line_data = await readFromN2M(app.locals.pending_file, 1, 1000);
-            // app.locals.parse_config.file_idx += line_data.length
+            await get_file_idx()
+            let line_data = await readFromN2M(app.locals.pending_file, app.locals.parse_config.file_idx, app.locals.parse_config.file_idx + 1000);
+            app.locals.parse_config.file_idx += line_data.length
             console.log(line_data.length)
-                // fs.writeFileSync("./config", app.locals.parse_config.file_idx + "\n")
-            await exec(`sed -i '~' -n '1,${line_data.length}d' pending.txt`)
+            fs.writeFileSync("./config", app.locals.parse_config.file_idx + "\n")
             resolve(line_data)
         } else {
             resolve([])
