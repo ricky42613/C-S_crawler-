@@ -29,7 +29,9 @@ function readFromN2M(filename, n, m) {
         lineReader.on('line', function(line) {
             lineNumber++;
             if (lineNumber >= n && lineNumber < m) {
-                line_data.push(line.slice(5))
+                if (line.length) {
+                    line_data.push(line)
+                }
             }
             if (lineNumber > m) {
                 lineReader.close();
